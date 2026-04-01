@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 認証済みユーザーのみアクセス可能（全コレクション共通）
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // 管理者判定（FirestoreのisAdminフィールド）
+    function isAdmin() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.isAdmin == true;
+    }
+
+    // ユーザー自身のドキュメント判定
+    function isOwner(email) {
+      return isSignedIn() && request.auth.token.email == email;
+    }
+
+    // ── ユーザー ──────────────────────────────────────────
+    match /users/{email} {
+      // 自分のデータは読み書き可能、全員の一覧は管理者のみ
+      allow read: if isOwner(email) || isAdmin();
+      allow write: if isOwner(email) || isAdmin();
+    }
+
+    // ── 出社記録 ──────────────────────────────────────────
+    match /attendance/{date}/participants/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // ── シャッフルランチ ───────────────────────────────────
+    match /lunch/{date} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /lunch/{date}/participants/{uid} {
+      allow read: if isSignedIn();
+      allow write: if isOwner(uid) || isAdmin();
+    }
+
+    // ── 掲示板 ────────────────────────────────────────────
+    match /announcements/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ── miive ─────────────────────────────────────────────
+    match /miive/{email} {
+      allow read: if isOwner(email) || isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}
