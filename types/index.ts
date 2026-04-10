@@ -1,11 +1,34 @@
-export interface User {
+export interface UserProfile {
+  // 必須項目
+  department?: string;        // 部署名
+  jobDescription?: string;    // 仕事内容
+  relatedMembers?: string;    // 関わりが深いメンバー
+  // 自由記入項目
+  joinDate?: string;          // 入社年月日
+  careerHistory?: string;     // 職歴
+  birthday?: string;          // 誕生日
+  hometown?: string;          // 出身地
+  currentArea?: string;       // 出没エリア
+  personality?: string;       // 性格（長所・短所）
+  languages?: string;         // 言語
+  specialSkills?: string;     // 特技
+  hobbies?: string;           // 趣味
+  favoriteFood?: string;      // 好きな食べ物
+  dislikedFood?: string;      // 苦手な食べ物
+  recentInterests?: string;   // 最近はやっているもの
+  weekends?: string;          // 週末の過ごし方
+  freeText?: string;          // その他
+}
+
+export interface User extends UserProfile {
   uid: string;
   name: string;
   email: string;
   photo: string;
-  department?: string;
   isAdmin: boolean;
+  isActive?: boolean;
   chatworkAccountId?: string;
+  confluencePageUrl?: string;
   miiveLinked?: boolean;
 }
 

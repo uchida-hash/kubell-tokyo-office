@@ -5,12 +5,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Settings, LogOut } from "lucide-react";
+import { Settings, LogOut, UserCircle } from "lucide-react";
 import { useState } from "react";
+import ProfileEditModal from "./ProfileEditModal";
 
 export default function Header() {
   const { data: session } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const today = format(new Date(), "M月d日(E)", { locale: ja });
 
   return (
@@ -49,6 +51,13 @@ export default function Header() {
 
             {menuOpen && (
               <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+                <button
+                  onClick={() => { setProfileOpen(true); setMenuOpen(false); }}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <UserCircle size={15} />
+                  プロフィール編集
+                </button>
                 {session?.user?.isAdmin && (
                   <Link
                     href="/admin"
@@ -71,6 +80,7 @@ export default function Header() {
           </div>
         </div>
       </div>
+      {profileOpen && <ProfileEditModal onClose={() => setProfileOpen(false)} />}
     </header>
   );
 }

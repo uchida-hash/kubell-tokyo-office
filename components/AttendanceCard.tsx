@@ -3,8 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { Users, MapPin, MapPinOff, Loader2, MessageCircle, X, BookUser } from "lucide-react";
-import type { AttendanceRecord } from "@/types";
+import { Users, MapPin, MapPinOff, Loader2, MessageCircle, X, BookUser, MapPinned, Star, Heart, UtensilsCrossed } from "lucide-react";
+import type { AttendanceRecord, UserProfile } from "@/types";
 
 interface ProfilePopupProps {
   member: AttendanceRecord;
@@ -13,6 +13,14 @@ interface ProfilePopupProps {
 
 function ProfilePopup({ member, onClose }: ProfilePopupProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/users/${encodeURIComponent(member.uid)}/`)
+      .then((r) => r.json())
+      .then((d) => setProfile(d.profile ?? {}))
+      .catch(() => {});
+  }, [member.uid]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -27,7 +35,7 @@ function ProfilePopup({ member, onClose }: ProfilePopupProps) {
   return (
     <div
       ref={ref}
-      className="absolute z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-52 -translate-x-1/2 left-1/2 mt-2"
+      className="absolute z-50 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 w-60 -translate-x-1/2 left-1/2 mt-2"
     >
       <button
         onClick={onClose}
@@ -57,6 +65,35 @@ function ProfilePopup({ member, onClose }: ProfilePopupProps) {
           )}
         </div>
       </div>
+
+      {profile && (profile.hometown || profile.hobbies || profile.specialSkills || profile.favoriteFood) && (
+        <div className="mb-3 space-y-1.5 border-t border-gray-100 pt-3">
+          {profile.hometown && (
+            <div className="flex items-start gap-1.5 text-xs text-gray-600">
+              <MapPinned size={12} className="text-gray-400 mt-0.5 shrink-0" />
+              <span>{profile.hometown}</span>
+            </div>
+          )}
+          {profile.hobbies && (
+            <div className="flex items-start gap-1.5 text-xs text-gray-600">
+              <Heart size={12} className="text-gray-400 mt-0.5 shrink-0" />
+              <span className="line-clamp-2">{profile.hobbies}</span>
+            </div>
+          )}
+          {profile.specialSkills && (
+            <div className="flex items-start gap-1.5 text-xs text-gray-600">
+              <Star size={12} className="text-gray-400 mt-0.5 shrink-0" />
+              <span className="line-clamp-1">{profile.specialSkills}</span>
+            </div>
+          )}
+          {profile.favoriteFood && (
+            <div className="flex items-start gap-1.5 text-xs text-gray-600">
+              <UtensilsCrossed size={12} className="text-gray-400 mt-0.5 shrink-0" />
+              <span className="line-clamp-1">{profile.favoriteFood}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="space-y-2">
         {member.chatworkAccountId ? (
