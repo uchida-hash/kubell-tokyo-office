@@ -123,7 +123,7 @@ export default function LunchCard() {
               <div className="text-xs font-semibold text-gray-500 mb-2">
                 グループ {i + 1}
               </div>
-              <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap mb-2">
                 {group.members.map((m) => (
                   <div key={m.uid} className="flex items-center gap-1.5">
                     {m.photo ? (
@@ -143,6 +143,19 @@ export default function LunchCard() {
                   </div>
                 ))}
               </div>
+              {group.topics && group.topics.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-black/10">
+                  <p className="text-xs font-semibold text-gray-500 mb-1">💬 話題のタネ</p>
+                  <ul className="space-y-1">
+                    {group.topics.map((topic, j) => (
+                      <li key={j} className="text-xs text-gray-600 flex items-start gap-1">
+                        <span className="text-gray-400 shrink-0">・</span>
+                        {topic}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           ))}
         </div>

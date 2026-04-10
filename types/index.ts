@@ -61,6 +61,7 @@ export interface LunchMatch {
 
 export interface LunchGroup {
   members: LunchParticipant[];
+  topics?: string[]; // AI生成の話題・共通点
 }
 
 export interface Announcement {
