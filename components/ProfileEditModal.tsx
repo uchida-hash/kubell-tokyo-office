@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Loader2, Save } from "lucide-react";
+import { X, Loader2, Save, RefreshCw } from "lucide-react";
 
 interface Props {
   onClose: () => void;
@@ -44,6 +44,8 @@ export default function ProfileEditModal({ onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -58,6 +60,32 @@ export default function ProfileEditModal({ onClose }: Props) {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  async function syncFromConfluence() {
+    setSyncing(true);
+    setSyncMessage(null);
+    try {
+      const res = await fetch("/api/confluence/sync");
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncMessage({ type: "error", text: data.error ?? "取得に失敗しました" });
+        return;
+      }
+      const p = data.profile ?? {};
+      setForm((prev) => {
+        const next = { ...prev };
+        for (const [key, value] of Object.entries(p)) {
+          if (value) next[key] = value as string;
+        }
+        return next;
+      });
+      setSyncMessage({ type: "success", text: "Confluenceから読み込みました。内容を確認して保存してください。" });
+    } catch {
+      setSyncMessage({ type: "error", text: "通信エラーが発生しました" });
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -80,6 +108,23 @@ export default function ProfileEditModal({ onClose }: Props) {
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={20} />
           </button>
+        </div>
+
+        {/* Confluence同期バー */}
+        <div className="px-6 py-3 border-b border-gray-100 flex items-center gap-3 flex-wrap">
+          <button
+            onClick={syncFromConfluence}
+            disabled={syncing || loading}
+            className="flex items-center gap-2 px-4 py-1.5 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl border border-blue-200 font-medium disabled:opacity-50"
+          >
+            {syncing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
+            Confluenceから読み込む
+          </button>
+          {syncMessage && (
+            <span className={`text-xs ${syncMessage.type === "success" ? "text-green-600" : "text-red-500"}`}>
+              {syncMessage.text}
+            </span>
+          )}
         </div>
 
         {/* フォーム */}
