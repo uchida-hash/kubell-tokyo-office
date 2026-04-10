@@ -3,8 +3,9 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState, useRef } from "react";
 import Image from "next/image";
-import { Users, MapPin, MapPinOff, Loader2, MessageCircle, X, BookUser, MapPinned, Star, Heart, UtensilsCrossed } from "lucide-react";
+import { Users, MapPin, MapPinOff, Loader2, MessageCircle, X, BookUser, MapPinned, Star, Heart, UtensilsCrossed, ChevronRight } from "lucide-react";
 import type { AttendanceRecord, UserProfile } from "@/types";
+import ProfileViewModal from "./ProfileViewModal";
 
 interface ProfilePopupProps {
   member: AttendanceRecord;
@@ -14,6 +15,7 @@ interface ProfilePopupProps {
 function ProfilePopup({ member, onClose }: ProfilePopupProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [viewProfile, setViewProfile] = useState(false);
 
   useEffect(() => {
     fetch(`/api/users/${encodeURIComponent(member.uid)}/`)
@@ -123,7 +125,24 @@ function ProfilePopup({ member, onClose }: ProfilePopupProps) {
             自己紹介を見る
           </a>
         )}
+        <button
+          onClick={() => setViewProfile(true)}
+          className="w-full flex items-center justify-center gap-2 bg-gray-50 hover:bg-gray-100 text-gray-600 text-sm font-medium py-2 rounded-xl transition-all"
+        >
+          <ChevronRight size={14} />
+          プロフィール詳細
+        </button>
       </div>
+
+      {viewProfile && (
+        <ProfileViewModal
+          email={member.uid}
+          name={member.name}
+          photo={member.photo}
+          department={member.department}
+          onClose={() => setViewProfile(false)}
+        />
+      )}
     </div>
   );
 }
