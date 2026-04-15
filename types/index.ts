@@ -91,3 +91,25 @@ export interface MiiveBalance {
   expirePoint: number;
   expireDate?: string;
 }
+
+export interface Community {
+  id: string;
+  name: string;
+  description: string;
+  emoji: string;
+  category: string; // 趣味・スポーツ・仕事・その他
+  memberCount: number;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface CommunityPost {
+  id: string;
+  content: string;
+  authorUid: string;
+  authorName: string;
+  authorPhoto?: string;
+  createdAt: string;
+  likeCount: number;
+  likedBy?: string[]; // emailリスト
+}

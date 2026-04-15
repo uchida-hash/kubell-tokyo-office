@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Settings, LogOut, UserCircle } from "lucide-react";
+import { Settings, LogOut, UserCircle, Hash } from "lucide-react";
 import { useState } from "react";
 import ProfileEditModal from "./ProfileEditModal";
 
@@ -24,6 +24,13 @@ export default function Header() {
         </Link>
 
         <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Link
+            href="/community"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors text-sm"
+          >
+            <Hash size={15} />
+            コミュニティ
+          </Link>
           <span className="hidden sm:block">{today}</span>
 
           <div className="relative">
