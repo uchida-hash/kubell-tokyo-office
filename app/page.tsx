@@ -38,13 +38,13 @@ export default async function DashboardPage() {
           {/* 出社状況 */}
           <AttendanceCard />
 
+          {/* シャッフルランチ */}
+          <LunchCard />
+
           {/* 座席表（全幅） */}
           <div className="lg:col-span-2">
             <SeatingCard />
           </div>
-
-          {/* シャッフルランチ */}
-          <LunchCard />
 
           {/* カレンダー */}
           <CalendarCard />
