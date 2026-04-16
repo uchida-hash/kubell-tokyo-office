@@ -34,6 +34,7 @@ export async function GET() {
     participants,
     matches: matchData?.groups ?? null,
     matchedAt: matchData?.createdAt ?? null,
+    matchCriteria: matchData?.matchCriteria ?? [],
   });
 }
 
