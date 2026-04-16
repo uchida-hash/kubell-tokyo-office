@@ -7,6 +7,7 @@ import LunchCard from "@/components/LunchCard";
 import CalendarCard from "@/components/CalendarCard";
 import AnnouncementCard from "@/components/AnnouncementCard";
 import MiiveCard from "@/components/MiiveCard";
+import SeatingCard from "@/components/SeatingCard";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 
@@ -36,6 +37,11 @@ export default async function DashboardPage() {
 
           {/* 出社状況 */}
           <AttendanceCard />
+
+          {/* 座席表（全幅） */}
+          <div className="lg:col-span-2">
+            <SeatingCard />
+          </div>
 
           {/* シャッフルランチ */}
           <LunchCard />

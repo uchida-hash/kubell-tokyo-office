@@ -92,6 +92,22 @@ export interface MiiveBalance {
   expireDate?: string;
 }
 
+export interface SeatingZone {
+  id: string;
+  name: string;      // 部署名
+  color: string;     // Tailwindカラーキー
+  order: number;     // 表示順
+}
+
+export interface SeatingRecord {
+  uid: string;       // email
+  name: string;
+  photo?: string;
+  department?: string;
+  zoneId: string;
+  updatedAt: string;
+}
+
 export interface Community {
   id: string;
   name: string;
