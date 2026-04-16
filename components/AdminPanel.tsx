@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Megaphone, Trash2, Plus, Loader2, Users, Shuffle, UserCog } from "lucide-react";
+import { Megaphone, Trash2, Plus, Loader2, Users, Shuffle, UserCog, SlidersHorizontal, X } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import type { Announcement } from "@/types";
@@ -233,19 +233,56 @@ function AttendanceTab() {
   );
 }
 
+const CRITERIA_OPTIONS = [
+  { key: "hometown",        label: "出身地" },
+  { key: "hobbies",         label: "趣味" },
+  { key: "favoriteFood",    label: "好きな食べ物" },
+  { key: "specialSkills",   label: "特技" },
+  { key: "recentInterests", label: "最近はまっているもの" },
+  { key: "weekends",        label: "週末の過ごし方" },
+  { key: "department",      label: "部署" },
+  { key: "careerHistory",   label: "職歴" },
+];
+
 /* ─── ランチ管理 ─── */
 function LunchTab() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [matching, setMatching] = useState(false);
+  const [criteria, setCriteria] = useState<string[]>([]);
+  const [savingCriteria, setSavingCriteria] = useState(false);
+  const [criteriaMessage, setCriteriaMessage] = useState("");
 
   async function fetchLunch() {
-    const res = await fetch("/api/lunch");
-    setData(await res.json());
+    const [lunchRes, settingsRes] = await Promise.all([
+      fetch("/api/lunch"),
+      fetch("/api/settings/lunch"),
+    ]);
+    setData(await lunchRes.json());
+    const settings = await settingsRes.json();
+    setCriteria(settings.criteria ?? []);
     setLoading(false);
   }
 
   useEffect(() => { fetchLunch(); }, []);
+
+  async function saveCriteria() {
+    setSavingCriteria(true);
+    await fetch("/api/settings/lunch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ criteria }),
+    });
+    setSavingCriteria(false);
+    setCriteriaMessage("保存しました");
+    setTimeout(() => setCriteriaMessage(""), 2000);
+  }
+
+  function toggleCriterion(key: string) {
+    setCriteria((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    );
+  }
 
   async function runMatch() {
     setMatching(true);
@@ -267,6 +304,58 @@ function LunchTab() {
 
   return (
     <div className="space-y-4">
+      {/* マッチング軸設定 */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-3">
+          <SlidersHorizontal size={16} className="text-orange-400" />
+          <h3 className="font-semibold text-gray-700">マッチング軸の設定</h3>
+        </div>
+        <p className="text-xs text-gray-400 mb-3">
+          選んだ項目でプロフィールの共通点が多い人同士をグループ化します。未選択の場合はランダムです。
+        </p>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {CRITERIA_OPTIONS.map((opt) => {
+            const selected = criteria.includes(opt.key);
+            return (
+              <button
+                key={opt.key}
+                onClick={() => toggleCriterion(opt.key)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
+                  selected
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
+                }`}
+              >
+                {selected && <X size={11} />}
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-3">
+          {criteria.length > 0 && (
+            <button
+              onClick={() => setCriteria([])}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              クリア（ランダムに戻す）
+            </button>
+          )}
+          <button
+            onClick={saveCriteria}
+            disabled={savingCriteria}
+            className="ml-auto flex items-center gap-1.5 px-4 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-xl hover:bg-brand-700 disabled:opacity-50"
+          >
+            {savingCriteria ? <Loader2 size={13} className="animate-spin" /> : null}
+            保存
+          </button>
+          {criteriaMessage && (
+            <span className="text-xs text-green-600">{criteriaMessage}</span>
+          )}
+        </div>
+      </div>
+
+      {/* 参加者 & マッチング実行 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 className="font-semibold text-gray-700 mb-3">
           本日の参加者 ({data?.participants?.length ?? 0}名)
@@ -294,7 +383,7 @@ function LunchTab() {
             className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-medium py-2.5 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
           >
             {matching ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
-            マッチング実行
+            マッチング実行{criteria.length > 0 ? `（${criteria.map((k) => CRITERIA_OPTIONS.find((o) => o.key === k)?.label).join("・")}軸）` : "（ランダム）"}
           </button>
           {data?.matches && (
             <button

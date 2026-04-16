@@ -3,19 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { UtensilsCrossed, Shuffle, Loader2, SlidersHorizontal, X } from "lucide-react";
+import { UtensilsCrossed, Shuffle, Loader2 } from "lucide-react";
 import type { LunchParticipant, LunchGroup } from "@/types";
-
-const CRITERIA_OPTIONS = [
-  { key: "hometown",       label: "出身地" },
-  { key: "hobbies",        label: "趣味" },
-  { key: "favoriteFood",   label: "好きな食べ物" },
-  { key: "specialSkills",  label: "特技" },
-  { key: "recentInterests",label: "最近はまっているもの" },
-  { key: "weekends",       label: "週末の過ごし方" },
-  { key: "department",     label: "部署" },
-  { key: "careerHistory",  label: "職歴" },
-];
 
 interface LunchData {
   participants: LunchParticipant[];
@@ -34,8 +23,6 @@ export default function LunchCard() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [matching, setMatching] = useState(false);
-  const [selectedCriteria, setSelectedCriteria] = useState<string[]>([]);
-  const [showCriteria, setShowCriteria] = useState(false);
 
   const myEmail = session?.user?.email ?? "";
   const isJoined = data.participants.some((p) => p.uid === myEmail);
@@ -66,20 +53,10 @@ export default function LunchCard() {
     }
   }
 
-  function toggleCriterion(key: string) {
-    setSelectedCriteria((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-    );
-  }
-
   async function runMatch() {
     setMatching(true);
     try {
-      const res = await fetch("/api/lunch/match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ criteria: selectedCriteria }),
-      });
+      const res = await fetch("/api/lunch/match", { method: "POST" });
       if (!res.ok) {
         const err = await res.json();
         alert(err.error);
@@ -138,14 +115,11 @@ export default function LunchCard() {
             </p>
             {data.matchCriteria && data.matchCriteria.length > 0 && (
               <div className="flex items-center gap-1 flex-wrap">
-                {data.matchCriteria.map((key) => {
-                  const opt = CRITERIA_OPTIONS.find((o) => o.key === key);
-                  return opt ? (
-                    <span key={key} className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
-                      {opt.label}軸
-                    </span>
-                  ) : null;
-                })}
+                {data.matchCriteria.map((key: string) => (
+                  <span key={key} className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">
+                    {key}軸
+                  </span>
+                ))}
               </div>
             )}
           </div>
@@ -203,72 +177,14 @@ export default function LunchCard() {
           </div>
 
           {isAdmin && (
-            <div className="space-y-3">
-              {/* マッチング軸の選択 */}
-              <div className="border border-gray-100 rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setShowCriteria(!showCriteria)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-all"
-                >
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal size={14} className="text-orange-400" />
-                    <span className="font-medium">マッチング軸</span>
-                    {selectedCriteria.length === 0 ? (
-                      <span className="text-xs text-gray-400">ランダム（未指定）</span>
-                    ) : (
-                      <span className="text-xs text-orange-500 font-semibold">
-                        {selectedCriteria.map((k) => CRITERIA_OPTIONS.find((o) => o.key === k)?.label).join("・")}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-gray-400 text-xs">{showCriteria ? "▲" : "▼"}</span>
-                </button>
-
-                {showCriteria && (
-                  <div className="px-3 pb-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-400 mt-2 mb-2">
-                      選んだ項目でプロフィールの共通点が多い人同士をグループ化します
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {CRITERIA_OPTIONS.map((opt) => {
-                        const selected = selectedCriteria.includes(opt.key);
-                        return (
-                          <button
-                            key={opt.key}
-                            onClick={() => toggleCriterion(opt.key)}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${
-                              selected
-                                ? "bg-orange-500 text-white border-orange-500"
-                                : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
-                            }`}
-                          >
-                            {selected && <X size={10} />}
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {selectedCriteria.length > 0 && (
-                      <button
-                        onClick={() => setSelectedCriteria([])}
-                        className="text-xs text-gray-400 hover:text-gray-600 mt-2"
-                      >
-                        選択をクリア（ランダムに戻す）
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <button
-                onClick={runMatch}
-                disabled={matching || data.participants.length < 2}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-xl transition-all disabled:opacity-50"
-              >
-                {matching ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
-                {matching ? "マッチング中..." : "マッチング実行"}
-              </button>
-            </div>
+            <button
+              onClick={runMatch}
+              disabled={matching || data.participants.length < 2}
+              className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 rounded-xl transition-all disabled:opacity-50"
+            >
+              {matching ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
+              {matching ? "マッチング中..." : "マッチング実行"}
+            </button>
           )}
 
           {!isAdmin && (
