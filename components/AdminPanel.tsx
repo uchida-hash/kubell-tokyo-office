@@ -1,24 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Megaphone, Trash2, Plus, Loader2, Users, Shuffle, UserCog, SlidersHorizontal, X } from "lucide-react";
+import { Megaphone, Trash2, Plus, Loader2, Users, Shuffle, UserCog, SlidersHorizontal, X, LayoutGrid } from "lucide-react";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
 import type { Announcement } from "@/types";
+import AdminSeatingTab from "./AdminSeatingTab";
 
 export default function AdminPanel() {
-  const [tab, setTab] = useState<"announcements" | "attendance" | "lunch" | "users">(
-    "announcements"
-  );
+  const [tab, setTab] = useState<
+    "announcements" | "attendance" | "lunch" | "users" | "seating"
+  >("announcements");
 
   return (
     <div>
       {/* タブ */}
-      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 flex-wrap">
         {[
           { key: "announcements", label: "掲示板", icon: Megaphone },
           { key: "attendance", label: "出社", icon: Users },
           { key: "lunch", label: "ランチ", icon: Shuffle },
+          { key: "seating", label: "座席", icon: LayoutGrid },
           { key: "users", label: "ユーザー", icon: UserCog },
         ].map(({ key, label, icon: Icon }) => (
           <button
@@ -39,6 +41,7 @@ export default function AdminPanel() {
       {tab === "announcements" && <AnnouncementsTab />}
       {tab === "attendance" && <AttendanceTab />}
       {tab === "lunch" && <LunchTab />}
+      {tab === "seating" && <AdminSeatingTab />}
       {tab === "users" && <UsersTab />}
     </div>
   );

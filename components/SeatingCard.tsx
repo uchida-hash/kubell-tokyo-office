@@ -1,124 +1,145 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useEffect, useState } from "react";
-import Image from "next/image";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, Loader2, X, Check, Pencil, Maximize2 } from "lucide-react";
-import type { SeatingZone, SeatingRecord } from "@/types";
-
-const COLOR_MAP: Record<string, { bg: string; border: string; badge: string }> = {
-  blue:   { bg: "bg-blue-50",   border: "border-blue-200",   badge: "bg-blue-100 text-blue-700" },
-  green:  { bg: "bg-green-50",  border: "border-green-200",  badge: "bg-green-100 text-green-700" },
-  purple: { bg: "bg-purple-50", border: "border-purple-200", badge: "bg-purple-100 text-purple-700" },
-  orange: { bg: "bg-orange-50", border: "border-orange-200", badge: "bg-orange-100 text-orange-700" },
-  pink:   { bg: "bg-pink-50",   border: "border-pink-200",   badge: "bg-pink-100 text-pink-700" },
-  teal:   { bg: "bg-teal-50",   border: "border-teal-200",   badge: "bg-teal-100 text-teal-700" },
-  red:    { bg: "bg-red-50",    border: "border-red-200",    badge: "bg-red-100 text-red-700" },
-  yellow: { bg: "bg-yellow-50", border: "border-yellow-200", badge: "bg-yellow-100 text-yellow-700" },
-};
-const COLORS = Object.keys(COLOR_MAP);
-const COLOR_LABELS: Record<string, string> = {
-  blue: "青", green: "緑", purple: "紫", orange: "橙",
-  pink: "ピンク", teal: "水色", red: "赤", yellow: "黄",
-};
+import {
+  LayoutGrid,
+  Loader2,
+  Maximize2,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import type {
+  Desk,
+  SeatingLayout,
+  SeatingRecord,
+} from "@/types";
+import SeatingGrid from "./SeatingGrid";
+import ProfileViewModal from "./ProfileViewModal";
 
 interface SeatingData {
-  zones: SeatingZone[];
+  layout: SeatingLayout;
+  desks: Desk[];
   records: SeatingRecord[];
-  myZoneId: string | null;
+  myRecord: SeatingRecord | null;
 }
 
-export default function SeatingCard({ fullView = false }: { fullView?: boolean } = {}) {
+export default function SeatingCard({
+  fullView = false,
+}: {
+  fullView?: boolean;
+} = {}) {
   const { data: session } = useSession();
-  const [data, setData] = useState<SeatingData>({ zones: [], records: [], myZoneId: null });
+  const [data, setData] = useState<SeatingData>({
+    layout: { cols: 12, rows: 8 },
+    desks: [],
+    records: [],
+    myRecord: null,
+  });
   const [loading, setLoading] = useState(true);
-  const [showPicker, setShowPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // 管理者: ゾーン追加
-  const [showAddZone, setShowAddZone] = useState(false);
-  const [newZone, setNewZone] = useState({ name: "", color: "blue" });
-  const [addingZone, setAddingZone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [viewProfile, setViewProfile] = useState<SeatingRecord | null>(null);
 
-  const isAdmin = session?.user?.isAdmin;
   const myEmail = session?.user?.email ?? "";
 
-  async function fetchSeating() {
+  const fetchSeating = useCallback(async () => {
     const res = await fetch("/api/seating");
     if (res.ok) {
-      const d = await res.json();
+      const d = (await res.json()) as SeatingData;
       setData(d);
     }
     setLoading(false);
-  }
+  }, []);
 
   useEffect(() => {
     fetchSeating();
     const timer = setInterval(fetchSeating, 3 * 60 * 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [fetchSeating]);
 
-  async function selectZone(zoneId: string) {
+  async function reserveDesk(deskId: string) {
     setSubmitting(true);
+    setError(null);
     try {
-      if (data.myZoneId === zoneId) {
-        await fetch("/api/seating", { method: "DELETE" });
-      } else {
-        await fetch("/api/seating", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ zoneId }),
-        });
+      const res = await fetch("/api/seating/reserve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deskId }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error ?? "予約に失敗しました");
+        return;
       }
       await fetchSeating();
-      setShowPicker(false);
     } finally {
       setSubmitting(false);
     }
   }
 
-  async function addZone() {
-    if (!newZone.name.trim()) return;
-    setAddingZone(true);
+  async function releaseDesk() {
+    setSubmitting(true);
+    setError(null);
     try {
-      await fetch("/api/seating/zones", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...newZone, order: data.zones.length }),
-      });
-      setNewZone({ name: "", color: "blue" });
-      setShowAddZone(false);
+      await fetch("/api/seating", { method: "DELETE" });
       await fetchSeating();
     } finally {
-      setAddingZone(false);
+      setSubmitting(false);
     }
   }
 
-  async function deleteZone(id: string) {
-    if (!confirm("このゾーンを削除しますか？")) return;
-    await fetch(`/api/seating/zones/${id}`, { method: "DELETE" });
-    await fetchSeating();
+  function handleCellClick({
+    desk,
+    record,
+  }: {
+    desk: Desk | null;
+    record: SeatingRecord | null;
+  }) {
+    if (!desk || desk.type !== "desk") return;
+
+    // 他人の席 → プロフィール表示
+    if (record && record.uid !== myEmail) {
+      setViewProfile(record);
+      return;
+    }
+
+    // 自分の席 → 解除
+    if (record && record.uid === myEmail) {
+      if (confirm(`${desk.label} の${record.status === "in_use" ? "利用" : "予約"}を解除しますか？`)) {
+        releaseDesk();
+      }
+      return;
+    }
+
+    // 空席 → 予約
+    if (confirm(`${desk.label} を予約しますか？`)) {
+      reserveDesk(desk.id);
+    }
   }
 
-  // ゾーンごとにレコードをグループ化
-  const recordsByZone: Record<string, SeatingRecord[]> = {};
-  data.records.forEach((r) => {
-    if (!recordsByZone[r.zoneId]) recordsByZone[r.zoneId] = [];
-    recordsByZone[r.zoneId].push(r);
-  });
-
-  const myZone = data.zones.find((z) => z.id === data.myZoneId);
+  const reservedCount = data.records.filter((r) => r.status === "reserved").length;
+  const inUseCount = data.records.filter((r) => r.status === "in_use").length;
+  const hasLayout = data.desks.length > 0;
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       {/* ヘッダー */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <LayoutGrid size={18} className="text-brand-600" />
-          <h2 className="font-bold text-gray-800">今日の座席表</h2>
-          {data.records.length > 0 && (
-            <span className="text-xs bg-brand-100 text-brand-700 font-semibold px-2 py-0.5 rounded-full">
-              {data.records.length}人着席中
+          <h2 className="font-bold text-gray-800">
+            {fullView ? "座席表" : "今日の座席表"}
+          </h2>
+          {reservedCount > 0 && (
+            <span className="text-xs bg-blue-100 text-blue-900 font-semibold px-2 py-0.5 rounded-full border border-blue-200">
+              予約 {reservedCount}
+            </span>
+          )}
+          {inUseCount > 0 && (
+            <span className="text-xs bg-amber-100 text-amber-900 font-semibold px-2 py-0.5 rounded-full border border-amber-200">
+              利用中 {inUseCount}
             </span>
           )}
         </div>
@@ -132,36 +153,51 @@ export default function SeatingCard({ fullView = false }: { fullView?: boolean }
               全表示
             </Link>
           )}
-          {isAdmin && (
+          {data.myRecord && (
             <button
-              onClick={() => setShowAddZone(true)}
-              className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded-lg hover:bg-gray-100"
+              onClick={releaseDesk}
+              disabled={submitting}
+              className="text-xs text-gray-500 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors inline-flex items-center gap-1"
             >
-              + ゾーン追加
+              <X size={12} />
+              自分の席を解除
             </button>
           )}
-          <button
-            onClick={() => setShowPicker(true)}
-            className="flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-full transition-all bg-brand-600 text-white hover:bg-brand-700"
-          >
-            <Pencil size={13} />
-            {data.myZoneId ? "変更" : "座席を選ぶ"}
-          </button>
         </div>
       </div>
 
-      {/* 現在の自分の座席 */}
-      {myZone && (
-        <div className="mb-3 flex items-center gap-2 text-sm">
+      {/* 自分の席情報 */}
+      {data.myRecord && (
+        <div className="mb-3 flex items-center gap-2 text-sm flex-wrap">
           <span className="text-gray-500">あなた：</span>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${COLOR_MAP[myZone.color]?.badge ?? "bg-gray-100 text-gray-600"}`}>
-            {myZone.name}
-          </span>
-          <button
-            onClick={() => selectZone(data.myZoneId!)}
-            className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+          <span
+            className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
+              data.myRecord.status === "in_use"
+                ? "bg-amber-100 text-amber-900 border-amber-600"
+                : "bg-blue-100 text-blue-900 border-blue-600"
+            }`}
           >
-            解除
+            {data.myRecord.status === "in_use" ? "利用中" : "予約中"}
+          </span>
+          <span className="text-xs text-gray-600">
+            {data.desks.find((d) => d.id === data.myRecord!.deskId)?.label ?? ""}
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="mb-3 flex items-start gap-2 bg-red-50 border border-red-200 text-red-800 text-xs rounded-lg px-3 py-2"
+          role="alert"
+        >
+          <AlertCircle size={14} className="shrink-0 mt-0.5" />
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-600 hover:text-red-800"
+            aria-label="閉じる"
+          >
+            <X size={14} />
           </button>
         </div>
       )}
@@ -170,184 +206,35 @@ export default function SeatingCard({ fullView = false }: { fullView?: boolean }
         <div className="flex justify-center py-8">
           <Loader2 size={24} className="animate-spin text-gray-300" />
         </div>
-      ) : data.zones.length === 0 ? (
+      ) : !hasLayout ? (
         <p className="text-center text-gray-400 text-sm py-6">
-          {isAdmin ? "「+ ゾーン追加」から部署ゾーンを登録してください" : "ゾーンが未設定です"}
+          座席レイアウトが未設定です。管理者に連絡してください。
         </p>
       ) : (
-        <div
-          className={
-            fullView
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-              : "grid grid-cols-1 sm:grid-cols-2 gap-3"
-          }
-        >
-          {data.zones.map((zone) => {
-            const members = recordsByZone[zone.id] ?? [];
-            const colors = COLOR_MAP[zone.color] ?? COLOR_MAP.blue;
-            return (
-              <div
-                key={zone.id}
-                className={`rounded-xl border ${fullView ? "p-4 min-h-[140px]" : "p-3"} ${colors.bg} ${colors.border}`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className={`${fullView ? "text-sm" : "text-xs"} font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
-                    {zone.name}
-                  </span>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-gray-400">{members.length}人</span>
-                    {isAdmin && (
-                      <button
-                        onClick={() => deleteZone(zone.id)}
-                        className="text-gray-300 hover:text-red-400 transition-colors ml-1"
-                      >
-                        <X size={12} />
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {members.length === 0 ? (
-                  <p className="text-xs text-gray-400">まだ誰もいません</p>
-                ) : (
-                  <div className={`flex flex-wrap ${fullView ? "gap-3" : "gap-2"}`}>
-                    {members.map((m) => (
-                      <div key={m.uid} className="flex items-center gap-1.5">
-                        {m.photo ? (
-                          <Image
-                            src={m.photo}
-                            alt={m.name}
-                            width={fullView ? 32 : 28}
-                            height={fullView ? 32 : 28}
-                            className="rounded-full"
-                          />
-                        ) : (
-                          <div
-                            className={`${fullView ? "w-8 h-8" : "w-7 h-7"} rounded-full bg-white flex items-center justify-center text-gray-600 font-bold text-xs shadow-sm`}
-                          >
-                            {m.name[0]}
-                          </div>
-                        )}
-                        <span className={`${fullView ? "text-sm" : "text-xs"} text-gray-700`}>
-                          {fullView ? m.name : m.name.split(" ")[0]}
-                          {m.uid === myEmail && <span className="text-green-500 ml-0.5">●</span>}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+        <SeatingGrid
+          layout={data.layout}
+          desks={data.desks}
+          records={data.records}
+          myEmail={myEmail}
+          compact={!fullView}
+          onCellClick={handleCellClick}
+        />
       )}
 
-      {/* 座席選択モーダル */}
-      {showPicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">座席ゾーンを選ぶ</h3>
-              <button onClick={() => setShowPicker(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={18} />
-              </button>
-            </div>
-            {data.zones.length === 0 ? (
-              <p className="text-center text-gray-400 text-sm py-4">ゾーンが登録されていません</p>
-            ) : (
-              <div className="space-y-2">
-                {data.zones.map((zone) => {
-                  const colors = COLOR_MAP[zone.color] ?? COLOR_MAP.blue;
-                  const isSelected = data.myZoneId === zone.id;
-                  const count = (recordsByZone[zone.id] ?? []).length;
-                  return (
-                    <button
-                      key={zone.id}
-                      onClick={() => selectZone(zone.id)}
-                      disabled={submitting}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
-                        isSelected
-                          ? `${colors.bg} ${colors.border} ring-2 ring-offset-1 ring-current`
-                          : `border-gray-200 hover:${colors.bg} hover:${colors.border}`
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        {isSelected && <Check size={15} className="text-green-500" />}
-                        <span className={`font-medium text-sm ${isSelected ? "" : "text-gray-700"}`}>
-                          {zone.name}
-                        </span>
-                      </div>
-                      <span className="text-xs text-gray-400">{count}人</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {data.myZoneId && (
-              <button
-                onClick={async () => { await selectZone(data.myZoneId!); }}
-                className="w-full mt-3 text-sm text-red-500 hover:text-red-600 py-2"
-              >
-                座席を解除する
-              </button>
-            )}
-          </div>
-        </div>
+      {!fullView && hasLayout && (
+        <p className="text-xs text-gray-400 mt-2">
+          席をタップして予約・解除・プロフィール閲覧ができます。実際に着席する際はデスクの QR コードを読み取ってください。
+        </p>
       )}
 
-      {/* ゾーン追加モーダル（管理者） */}
-      {showAddZone && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-gray-800">ゾーンを追加</h3>
-              <button onClick={() => setShowAddZone(false)} className="text-gray-400 hover:text-gray-600">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">部署名 *</label>
-                <input
-                  value={newZone.name}
-                  onChange={(e) => setNewZone({ ...newZone, name: e.target.value })}
-                  placeholder="例：CEO室、エンジニア、営業"
-                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">カラー</label>
-                <div className="flex flex-wrap gap-2">
-                  {COLORS.map((c) => (
-                    <button
-                      key={c}
-                      onClick={() => setNewZone({ ...newZone, color: c })}
-                      className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                        COLOR_MAP[c].badge
-                      } ${newZone.color === c ? "ring-2 ring-offset-1 ring-gray-400" : ""}`}
-                    >
-                      {COLOR_LABELS[c]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2 mt-5">
-              <button
-                onClick={() => setShowAddZone(false)}
-                className="flex-1 py-2 text-sm text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={addZone}
-                disabled={addingZone || !newZone.name.trim()}
-                className="flex-1 py-2 text-sm text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50 flex items-center justify-center"
-              >
-                {addingZone ? <Loader2 size={14} className="animate-spin" /> : "追加"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {viewProfile && (
+        <ProfileViewModal
+          email={viewProfile.uid}
+          name={viewProfile.name}
+          photo={viewProfile.photo}
+          department={viewProfile.department}
+          onClose={() => setViewProfile(null)}
+        />
       )}
     </div>
   );

@@ -1,23 +1,38 @@
 "use client";
 
 import { signIn, useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <LoginInner />
+    </Suspense>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
+    </div>
+  );
+}
+
+function LoginInner() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // QR経由など、ログイン後に戻したいURL
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
 
   useEffect(() => {
-    if (session) router.push("/");
-  }, [session, router]);
+    if (session) router.push(callbackUrl);
+  }, [session, router, callbackUrl]);
 
   if (status === "loading") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-600" />
-      </div>
-    );
+    return <LoadingFallback />;
   }
 
   return (
@@ -30,7 +45,7 @@ export default function LoginPage() {
         </div>
 
         <button
-          onClick={() => signIn("google", { callbackUrl: "/" })}
+          onClick={() => signIn("google", { callbackUrl })}
           className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-all rounded-xl px-6 py-3 text-gray-700 font-medium shadow-sm"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">

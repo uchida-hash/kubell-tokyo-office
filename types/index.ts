@@ -92,19 +92,33 @@ export interface MiiveBalance {
   expireDate?: string;
 }
 
-export interface SeatingZone {
-  id: string;
-  name: string;      // 部署名
-  color: string;     // Tailwindカラーキー
-  order: number;     // 表示順
+export interface SeatingLayout {
+  cols: number;      // 列数
+  rows: number;      // 行数
+  updatedAt?: string;
 }
+
+export type DeskType = "desk" | "label";
+
+export interface Desk {
+  id: string;
+  row: number;       // 0-indexed
+  col: number;       // 0-indexed
+  label: string;     // e.g. "A-1" or "会議室"
+  type: DeskType;    // "desk" は予約可、"label" は表示のみ
+}
+
+export type SeatStatus = "reserved" | "in_use";
 
 export interface SeatingRecord {
   uid: string;       // email
   name: string;
   photo?: string;
   department?: string;
-  zoneId: string;
+  deskId: string;
+  status: SeatStatus;
+  reservedAt?: string;
+  checkedInAt?: string;
   updatedAt: string;
 }
 
