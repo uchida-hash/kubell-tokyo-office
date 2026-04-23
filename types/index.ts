@@ -93,8 +93,10 @@ export interface MiiveBalance {
 }
 
 export interface SeatingLayout {
-  cols: number;      // 列数
-  rows: number;      // 行数
+  floor?: string;       // e.g. "4F"
+  imagePath: string;    // 背景図面のパス（/public 配下）
+  imageWidth: number;   // 画像の本来のピクセル幅
+  imageHeight: number;  // 画像の本来のピクセル高さ
   updatedAt?: string;
 }
 
@@ -102,10 +104,10 @@ export type DeskType = "desk" | "label";
 
 export interface Desk {
   id: string;
-  row: number;       // 0-indexed
-  col: number;       // 0-indexed
-  label: string;     // e.g. "A-1" or "会議室"
-  type: DeskType;    // "desk" は予約可、"label" は表示のみ
+  x: number;         // 0.0〜1.0（画像幅に対する相対座標）
+  y: number;         // 0.0〜1.0（画像高さに対する相対座標）
+  label: string;     // e.g. "A-1"
+  type: DeskType;    // "desk" は予約可、"label" は注釈
 }
 
 export type SeatStatus = "reserved" | "in_use";

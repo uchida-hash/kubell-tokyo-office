@@ -11,7 +11,12 @@ function todayJST() {
   return format(toZonedTime(new Date(), TZ), "yyyy-MM-dd");
 }
 
-const DEFAULT_LAYOUT: SeatingLayout = { cols: 12, rows: 8 };
+const DEFAULT_LAYOUT: SeatingLayout = {
+  floor: "4F",
+  imagePath: "/seating/toranomon-4f.png",
+  imageWidth: 2400,
+  imageHeight: 1350,
+};
 
 // GET: 今日の座席状況（レイアウト + デスク + 予約レコード）
 export async function GET() {

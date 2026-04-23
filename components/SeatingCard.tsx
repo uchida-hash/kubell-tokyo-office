@@ -15,7 +15,7 @@ import type {
   SeatingLayout,
   SeatingRecord,
 } from "@/types";
-import SeatingGrid from "./SeatingGrid";
+import SeatingMap from "./SeatingMap";
 import ProfileViewModal from "./ProfileViewModal";
 
 interface SeatingData {
@@ -25,6 +25,13 @@ interface SeatingData {
   myRecord: SeatingRecord | null;
 }
 
+const FALLBACK_LAYOUT: SeatingLayout = {
+  floor: "4F",
+  imagePath: "/seating/toranomon-4f.png",
+  imageWidth: 2400,
+  imageHeight: 1350,
+};
+
 export default function SeatingCard({
   fullView = false,
 }: {
@@ -32,7 +39,7 @@ export default function SeatingCard({
 } = {}) {
   const { data: session } = useSession();
   const [data, setData] = useState<SeatingData>({
-    layout: { cols: 12, rows: 8 },
+    layout: FALLBACK_LAYOUT,
     desks: [],
     records: [],
     myRecord: null,
@@ -90,14 +97,8 @@ export default function SeatingCard({
     }
   }
 
-  function handleCellClick({
-    desk,
-    record,
-  }: {
-    desk: Desk | null;
-    record: SeatingRecord | null;
-  }) {
-    if (!desk || desk.type !== "desk") return;
+  function handleDeskClick(desk: Desk, record: SeatingRecord | null) {
+    if (submitting) return;
 
     // 他人の席 → プロフィール表示
     if (record && record.uid !== myEmail) {
@@ -105,15 +106,19 @@ export default function SeatingCard({
       return;
     }
 
-    // 自分の席 → 解除
+    // 自分の席 → 解除確認
     if (record && record.uid === myEmail) {
-      if (confirm(`${desk.label} の${record.status === "in_use" ? "利用" : "予約"}を解除しますか？`)) {
+      if (
+        confirm(
+          `${desk.label} の${record.status === "in_use" ? "利用" : "予約"}を解除しますか？`
+        )
+      ) {
         releaseDesk();
       }
       return;
     }
 
-    // 空席 → 予約
+    // 空席 → 予約確認
     if (confirm(`${desk.label} を予約しますか？`)) {
       reserveDesk(desk.id);
     }
@@ -130,7 +135,7 @@ export default function SeatingCard({
         <div className="flex items-center gap-2 flex-wrap">
           <LayoutGrid size={18} className="text-brand-600" />
           <h2 className="font-bold text-gray-800">
-            {fullView ? "座席表" : "今日の座席表"}
+            {fullView ? `座席マップ ${data.layout.floor ?? ""}` : "今日の座席表"}
           </h2>
           {reservedCount > 0 && (
             <span className="text-xs bg-blue-100 text-blue-900 font-semibold px-2 py-0.5 rounded-full border border-blue-200">
@@ -173,8 +178,8 @@ export default function SeatingCard({
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
               data.myRecord.status === "in_use"
-                ? "bg-amber-100 text-amber-900 border-amber-600"
-                : "bg-blue-100 text-blue-900 border-blue-600"
+                ? "bg-amber-100 text-amber-900 border-amber-700"
+                : "bg-blue-100 text-blue-900 border-blue-700"
             }`}
           >
             {data.myRecord.status === "in_use" ? "利用中" : "予約中"}
@@ -208,16 +213,15 @@ export default function SeatingCard({
         </div>
       ) : !hasLayout ? (
         <p className="text-center text-gray-400 text-sm py-6">
-          座席レイアウトが未設定です。管理者に連絡してください。
+          座席レイアウトが未設定です。管理者は「管理 → 座席」からプリセットを適用してください。
         </p>
       ) : (
-        <SeatingGrid
+        <SeatingMap
           layout={data.layout}
           desks={data.desks}
           records={data.records}
           myEmail={myEmail}
-          compact={!fullView}
-          onCellClick={handleCellClick}
+          onDeskClick={handleDeskClick}
         />
       )}
 

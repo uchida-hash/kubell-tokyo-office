@@ -1,8 +1,8 @@
 import type { DeskType, SeatingLayout } from "@/types";
 
 export interface PresetDesk {
-  row: number;
-  col: number;
+  x: number;
+  y: number;
   label: string;
   type: DeskType;
 }
@@ -15,118 +15,75 @@ export interface SeatingPreset {
 }
 
 /**
- * 虎ノ門 4F（KDX 虎ノ門1丁目 4F）レイアウトのプリセット
- * PDF を 20×12 グリッドに簡略化したもの。
- * 管理画面で個別に調整可能。
+ * 虎ノ門 4F レイアウトのプリセット
+ * `/public/seating/toranomon-4f.png` を背景にした絶対座標方式。
+ * x/y は 0.0〜1.0（画像幅・高さに対する相対位置）。
+ * 位置は図面を見ながらの近似値。管理画面でドラッグして微調整してください。
  */
 const TORANOMON_4F: SeatingPreset = (() => {
   const desks: PresetDesk[] = [];
 
-  // ===== エリア・ラベル =====
-  // 左側エレベーターフォイヤー（ELEV）
-  desks.push(
-    { row: 2, col: 2, label: "ELEV", type: "label" },
-    { row: 3, col: 2, label: "ELEV", type: "label" },
-    { row: 4, col: 2, label: "ELEV", type: "label" },
-    { row: 5, col: 2, label: "ELEV", type: "label" }
-  );
-  // 男女トイレ
-  desks.push(
-    { row: 1, col: 0, label: "M-WC", type: "label" },
-    { row: 1, col: 1, label: "M-WC", type: "label" },
-    { row: 2, col: 0, label: "M-WC", type: "label" },
-    { row: 2, col: 1, label: "M-WC", type: "label" },
-    { row: 4, col: 0, label: "W-WC", type: "label" },
-    { row: 4, col: 1, label: "W-WC", type: "label" },
-    { row: 5, col: 0, label: "W-WC", type: "label" },
-    { row: 5, col: 1, label: "W-WC", type: "label" }
-  );
-  // エントランス
-  desks.push(
-    { row: 6, col: 0, label: "エントランス", type: "label" },
-    { row: 6, col: 1, label: "エントランス", type: "label" }
-  );
-  // 会議室（上部左）
-  desks.push(
-    { row: 0, col: 4, label: "会議室1", type: "label" },
-    { row: 1, col: 4, label: "会議室2", type: "label" },
-    { row: 2, col: 4, label: "会議室3", type: "label" },
-    { row: 3, col: 4, label: "会議室4", type: "label" },
-    { row: 4, col: 4, label: "会議室5", type: "label" },
-    { row: 5, col: 4, label: "会議室6", type: "label" }
-  );
-  // Lounge
-  desks.push(
-    { row: 6, col: 4, label: "Lounge", type: "label" },
-    { row: 6, col: 5, label: "Lounge", type: "label" },
-    { row: 7, col: 4, label: "Lounge", type: "label" },
-    { row: 7, col: 5, label: "Lounge", type: "label" }
-  );
-  // 中央会議室
-  desks.push({ row: 7, col: 6, label: "会議室7", type: "label" });
-  // フレキシブルエリア
-  desks.push(
-    { row: 6, col: 8, label: "フレキシブル", type: "label" },
-    { row: 6, col: 9, label: "フレキシブル", type: "label" },
-    { row: 6, col: 10, label: "エリア", type: "label" },
-    { row: 6, col: 11, label: "エリア", type: "label" }
-  );
-  // 下部左の会議室
-  desks.push(
-    { row: 9, col: 3, label: "会議室8", type: "label" },
-    { row: 9, col: 4, label: "会議室9", type: "label" },
-    { row: 10, col: 3, label: "会議室10", type: "label" },
-    { row: 10, col: 4, label: "会議室11", type: "label" }
-  );
-
-  // ===== デスククラスター =====
-  // 上部 4 クラスター（A〜D）: cols 7-18, rows 0-1 と 3-4
-  // 1 クラスター = 2行 × 2列 = 4席
-  type ClusterDef = { prefix: string; cols: number[]; rows: number[] };
-
-  const topClusters: ClusterDef[] = [
-    { prefix: "A", cols: [7, 8], rows: [0, 1] },
-    { prefix: "B", cols: [10, 11], rows: [0, 1] },
-    { prefix: "C", cols: [13, 14], rows: [0, 1] },
-    { prefix: "D", cols: [16, 17], rows: [0, 1] },
-    { prefix: "E", cols: [7, 8], rows: [3, 4] },
-    { prefix: "F", cols: [10, 11], rows: [3, 4] },
-    { prefix: "G", cols: [13, 14], rows: [3, 4] },
-    { prefix: "H", cols: [16, 17], rows: [3, 4] },
-  ];
-  // 下部 4 クラスター（I〜L）: rows 8-9 と 11
-  const bottomClusters: ClusterDef[] = [
-    { prefix: "I", cols: [7, 8], rows: [8, 9] },
-    { prefix: "J", cols: [10, 11], rows: [8, 9] },
-    { prefix: "K", cols: [13, 14], rows: [8, 9] },
-    { prefix: "L", cols: [16, 17], rows: [8, 9] },
-    { prefix: "M", cols: [7, 8], rows: [11] },
-    { prefix: "N", cols: [10, 11], rows: [11] },
-    { prefix: "O", cols: [13, 14], rows: [11] },
-    { prefix: "P", cols: [16, 17], rows: [11] },
-  ];
-
-  const applyCluster = (c: ClusterDef) => {
-    let seat = 1;
-    for (const r of c.rows) {
-      for (const col of c.cols) {
+  // ヘルパー: アンカー (ax, ay) を左上として、rows × cols のクラスターを配置
+  function cluster(
+    prefix: string,
+    ax: number,
+    ay: number,
+    rows: number,
+    cols: number,
+    dx = 0.022,
+    dy = 0.048
+  ) {
+    let n = 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
         desks.push({
-          row: r,
-          col,
-          label: `${c.prefix}-${String(seat).padStart(2, "0")}`,
+          x: ax + c * dx,
+          y: ay + r * dy,
+          label: `${prefix}-${String(n).padStart(2, "0")}`,
           type: "desk",
         });
-        seat++;
+        n++;
       }
     }
-  };
-  topClusters.forEach(applyCluster);
-  bottomClusters.forEach(applyCluster);
+  }
+
+  // ==== 上部（北側）のデスククラスター ====
+  // 図面上、会議室の列よりも上、メインオフィスの上半分
+  // 4 クラスター × 2列（上下2段）
+  cluster("A", 0.435, 0.095, 2, 2); // 上段・左
+  cluster("B", 0.560, 0.095, 2, 2);
+  cluster("C", 0.685, 0.095, 2, 2);
+  cluster("D", 0.810, 0.095, 2, 2);
+
+  cluster("E", 0.435, 0.245, 2, 2); // 中段
+  cluster("F", 0.560, 0.245, 2, 2);
+  cluster("G", 0.685, 0.245, 2, 2);
+  cluster("H", 0.810, 0.245, 2, 2);
+
+  // ==== 右側（フレキシブルエリア右）のデスククラスター ====
+  cluster("I", 0.810, 0.420, 2, 2);
+  cluster("J", 0.810, 0.560, 2, 2);
+
+  // ==== 下部（南側）のデスククラスター ====
+  cluster("K", 0.435, 0.700, 2, 2);
+  cluster("L", 0.560, 0.700, 2, 2);
+  cluster("M", 0.685, 0.700, 2, 2);
+  cluster("N", 0.810, 0.700, 2, 2);
+
+  cluster("O", 0.435, 0.840, 2, 2);
+  cluster("P", 0.560, 0.840, 2, 2);
+  cluster("Q", 0.685, 0.840, 2, 2);
+  cluster("R", 0.810, 0.840, 2, 2);
 
   return {
     id: "toranomon-4f",
     name: "虎ノ門 4F（KDX 虎ノ門1丁目）",
-    layout: { cols: 20, rows: 12 },
+    layout: {
+      floor: "4F",
+      imagePath: "/seating/toranomon-4f.png",
+      imageWidth: 2400,
+      imageHeight: 1350,
+    },
     desks,
   };
 })();

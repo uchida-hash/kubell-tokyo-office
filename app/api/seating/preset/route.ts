@@ -13,15 +13,14 @@ export async function GET() {
   const presets = Object.values(SEATING_PRESETS).map((p) => ({
     id: p.id,
     name: p.name,
-    cols: p.layout.cols,
-    rows: p.layout.rows,
+    floor: p.layout.floor,
     deskCount: p.desks.filter((d) => d.type === "desk").length,
     labelCount: p.desks.filter((d) => d.type === "label").length,
   }));
   return NextResponse.json({ presets });
 }
 
-// POST: プリセットを適用（既存デスクを全削除して差し替え）
+// POST: プリセットを適用（既存デスクを全削除してレイアウトごと差し替え）
 // body: { preset: string }
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -42,8 +41,7 @@ export async function POST(req: NextRequest) {
 
   // レイアウトを更新
   batch.set(adminDb.collection("seatingLayout").doc("config"), {
-    cols: preset.layout.cols,
-    rows: preset.layout.rows,
+    ...preset.layout,
     updatedAt: new Date().toISOString(),
   });
 

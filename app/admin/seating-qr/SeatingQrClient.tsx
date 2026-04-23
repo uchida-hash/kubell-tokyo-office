@@ -17,10 +17,12 @@ export default function SeatingQrClient({ origin }: { origin: string }) {
       .finally(() => setLoading(false));
   }, []);
 
-  // row → col 順にソート
-  const sorted = [...desks].sort((a, b) =>
-    a.row === b.row ? a.col - b.col : a.row - b.row
-  );
+  // 上→下、左→右の順にソート（y を 5% バケットに丸めて同じ行を揃える）
+  const sorted = [...desks].sort((a, b) => {
+    const ay = Math.round(a.y * 20);
+    const by = Math.round(b.y * 20);
+    return ay === by ? a.x - b.x : ay - by;
+  });
 
   return (
     <>

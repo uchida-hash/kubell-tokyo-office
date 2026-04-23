@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Trash2, Grid3x3, Printer, X, Sparkles } from "lucide-react";
+import { Loader2, Trash2, Printer, X, Sparkles, Info } from "lucide-react";
 import type { Desk, SeatingLayout, SeatingRecord, DeskType } from "@/types";
-import SeatingGrid from "./SeatingGrid";
+import SeatingMap from "./SeatingMap";
 
 interface SeatingData {
   layout: SeatingLayout;
@@ -15,25 +15,29 @@ interface SeatingData {
 interface PresetInfo {
   id: string;
   name: string;
-  cols: number;
-  rows: number;
+  floor?: string;
   deskCount: number;
   labelCount: number;
 }
 
+const FALLBACK_LAYOUT: SeatingLayout = {
+  floor: "4F",
+  imagePath: "/seating/toranomon-4f.png",
+  imageWidth: 2400,
+  imageHeight: 1350,
+};
+
 export default function AdminSeatingTab() {
   const [data, setData] = useState<SeatingData>({
-    layout: { cols: 12, rows: 8 },
+    layout: FALLBACK_LAYOUT,
     desks: [],
     records: [],
   });
   const [loading, setLoading] = useState(true);
-  const [cols, setCols] = useState(12);
-  const [rows, setRows] = useState(8);
   const [editing, setEditing] = useState<{
-    row: number;
-    col: number;
     desk: Desk | null;
+    x: number;
+    y: number;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [presets, setPresets] = useState<PresetInfo[]>([]);
@@ -43,8 +47,6 @@ export default function AdminSeatingTab() {
     if (res.ok) {
       const d = (await res.json()) as SeatingData;
       setData(d);
-      setCols(d.layout.cols);
-      setRows(d.layout.rows);
     }
     setLoading(false);
   }, []);
@@ -52,7 +54,7 @@ export default function AdminSeatingTab() {
   useEffect(() => {
     fetchAll();
     fetch("/api/seating/preset")
-      .then((r) => r.ok ? r.json() : { presets: [] })
+      .then((r) => (r.ok ? r.json() : { presets: [] }))
       .then((d) => setPresets(d.presets ?? []))
       .catch(() => setPresets([]));
   }, [fetchAll]);
@@ -82,30 +84,16 @@ export default function AdminSeatingTab() {
     }
   }
 
-  async function saveLayout() {
-    setBusy(true);
-    try {
-      await fetch("/api/seating/layout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cols, rows }),
-      });
-      await fetchAll();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function saveDesk({
     id,
-    row,
-    col,
+    x,
+    y,
     label,
     type,
   }: {
     id?: string;
-    row: number;
-    col: number;
+    x: number;
+    y: number;
     label: string;
     type: DeskType;
   }) {
@@ -114,7 +102,7 @@ export default function AdminSeatingTab() {
       const res = await fetch("/api/seating/desks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, row, col, label, type }),
+        body: JSON.stringify({ id, x, y, label, type }),
       });
       if (!res.ok) {
         const d = await res.json();
@@ -126,6 +114,27 @@ export default function AdminSeatingTab() {
     } finally {
       setBusy(false);
     }
+  }
+
+  async function moveDesk(id: string, x: number, y: number) {
+    const target = data.desks.find((d) => d.id === id);
+    if (!target) return;
+    // 楽観更新
+    setData((prev) => ({
+      ...prev,
+      desks: prev.desks.map((d) => (d.id === id ? { ...d, x, y } : d)),
+    }));
+    await fetch("/api/seating/desks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        x,
+        y,
+        label: target.label,
+        type: target.type,
+      }),
+    });
   }
 
   async function deleteDesk(id: string) {
@@ -160,7 +169,7 @@ export default function AdminSeatingTab() {
             </h3>
           </div>
           <p className="text-xs text-brand-800 mb-3">
-            ワンクリックで既製のレイアウトを適用できます（既存デスクは上書きされます）。
+            ワンクリックで既製のフロアレイアウトを適用できます。図面画像とデスク初期配置が同時にセットされます（既存デスクは上書き）。
           </p>
           <div className="flex flex-wrap gap-2">
             {presets.map((p) => (
@@ -172,7 +181,8 @@ export default function AdminSeatingTab() {
               >
                 <span className="font-semibold">{p.name}</span>
                 <span className="text-xs text-brand-600">
-                  {p.cols}×{p.rows} / デスク{p.deskCount}・ラベル{p.labelCount}
+                  デスク{p.deskCount}
+                  {p.labelCount > 0 && ` / ラベル${p.labelCount}`}
                 </span>
               </button>
             ))}
@@ -180,70 +190,44 @@ export default function AdminSeatingTab() {
         </div>
       )}
 
-      {/* レイアウト設定 */}
-      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-        <div className="flex items-center gap-2 mb-3">
-          <Grid3x3 size={16} className="text-gray-500" />
-          <h3 className="font-semibold text-gray-700 text-sm">
-            グリッドサイズ
-          </h3>
+      {/* 操作ヒント */}
+      <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 flex items-start gap-2">
+        <Info size={14} className="text-gray-500 mt-0.5 shrink-0" />
+        <div className="text-xs text-gray-600 flex-1">
+          <div>
+            <strong>図面の空きエリアをクリック</strong> → 新規デスク/ラベルを追加
+          </div>
+          <div>
+            <strong>デスクをドラッグ</strong> → 位置を移動
+            ／ <strong>クリック</strong> → 編集・削除
+          </div>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <label className="text-sm">
-            <span className="text-gray-500 mr-1">列</span>
-            <input
-              type="number"
-              min={1}
-              max={30}
-              value={cols}
-              onChange={(e) => setCols(Number(e.target.value))}
-              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm"
-            />
-          </label>
-          <label className="text-sm">
-            <span className="text-gray-500 mr-1">行</span>
-            <input
-              type="number"
-              min={1}
-              max={30}
-              value={rows}
-              onChange={(e) => setRows(Number(e.target.value))}
-              className="w-16 border border-gray-200 rounded-lg px-2 py-1 text-sm"
-            />
-          </label>
-          <button
-            onClick={saveLayout}
-            disabled={busy}
-            className="bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-3 py-1.5 rounded-lg disabled:opacity-50"
-          >
-            サイズ更新
-          </button>
-          <Link
-            href="/admin/seating-qr"
-            className="ml-auto inline-flex items-center gap-1 text-sm bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg"
-          >
-            <Printer size={14} />
-            QR 印刷ページ
-          </Link>
-        </div>
-        <p className="text-xs text-gray-400 mt-2">
-          マスをクリック → デスク追加・ラベル追加・編集・削除
-        </p>
+        <Link
+          href="/admin/seating-qr"
+          className="shrink-0 inline-flex items-center gap-1 text-xs bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 px-2 py-1 rounded-lg"
+        >
+          <Printer size={12} />
+          QR 印刷
+        </Link>
       </div>
 
-      {/* グリッド */}
-      <SeatingGrid
+      {/* マップ */}
+      <SeatingMap
         layout={data.layout}
         desks={data.desks}
         records={data.records}
         editMode
-        onCellClick={({ row, col, desk }) => setEditing({ row, col, desk })}
+        onDeskClick={(desk) =>
+          setEditing({ desk, x: desk.x, y: desk.y })
+        }
+        onAddAt={(x, y) => setEditing({ desk: null, x, y })}
+        onMoveDesk={moveDesk}
       />
 
       {editing && (
         <EditModal
-          row={editing.row}
-          col={editing.col}
+          x={editing.x}
+          y={editing.y}
           desk={editing.desk}
           busy={busy}
           onClose={() => setEditing(null)}
@@ -256,23 +240,23 @@ export default function AdminSeatingTab() {
 }
 
 function EditModal({
-  row,
-  col,
+  x,
+  y,
   desk,
   busy,
   onClose,
   onSave,
   onDelete,
 }: {
-  row: number;
-  col: number;
+  x: number;
+  y: number;
   desk: Desk | null;
   busy: boolean;
   onClose: () => void;
   onSave: (v: {
     id?: string;
-    row: number;
-    col: number;
+    x: number;
+    y: number;
     label: string;
     type: DeskType;
   }) => void;
@@ -288,7 +272,7 @@ function EditModal({
           <h3 className="font-bold text-gray-800">
             {desk ? "マスを編集" : "マスを追加"}{" "}
             <span className="text-xs text-gray-400 font-normal">
-              ({row}, {col})
+              ({(x * 100).toFixed(1)}%, {(y * 100).toFixed(1)}%)
             </span>
           </h3>
           <button
@@ -309,7 +293,7 @@ function EditModal({
               {(
                 [
                   { value: "desk", label: "デスク" },
-                  { value: "label", label: "ラベル（会議室など）" },
+                  { value: "label", label: "ラベル（注釈）" },
                 ] as const
               ).map((o) => (
                 <button
@@ -333,7 +317,7 @@ function EditModal({
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder={type === "desk" ? "例：A-1" : "例：会議室A、窓"}
+              placeholder={type === "desk" ? "例：A-01" : "例：会議室A、窓"}
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
             />
           </div>
@@ -360,8 +344,8 @@ function EditModal({
             onClick={() =>
               onSave({
                 id: desk?.id,
-                row,
-                col,
+                x,
+                y,
                 label: label.trim() || "(無題)",
                 type,
               })
