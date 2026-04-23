@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Settings, LogOut, UserCircle, Hash } from "lucide-react";
+import { Settings, LogOut, UserCircle, Hash, LayoutGrid } from "lucide-react";
 import { useState } from "react";
 import ProfileEditModal from "./ProfileEditModal";
 
@@ -18,15 +18,24 @@ export default function Header() {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 lg:hidden">
           <span className="text-xl">🏢</span>
           <span className="font-bold text-gray-800 text-lg">kubell Tokyo-Office</span>
         </Link>
+        {/* デスクトップ: サイドバーと被るためロゴ非表示、スペーサーを置く */}
+        <div className="hidden lg:block" />
 
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Link
+            href="/seating"
+            className="hidden sm:flex lg:hidden items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors text-sm"
+          >
+            <LayoutGrid size={15} />
+            座席表
+          </Link>
+          <Link
             href="/community"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors text-sm"
+            className="hidden sm:flex lg:hidden items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors text-sm"
           >
             <Hash size={15} />
             コミュニティ

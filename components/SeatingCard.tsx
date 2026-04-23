@@ -3,7 +3,8 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { LayoutGrid, Loader2, X, Check, Pencil } from "lucide-react";
+import Link from "next/link";
+import { LayoutGrid, Loader2, X, Check, Pencil, Maximize2 } from "lucide-react";
 import type { SeatingZone, SeatingRecord } from "@/types";
 
 const COLOR_MAP: Record<string, { bg: string; border: string; badge: string }> = {
@@ -28,7 +29,7 @@ interface SeatingData {
   myZoneId: string | null;
 }
 
-export default function SeatingCard() {
+export default function SeatingCard({ fullView = false }: { fullView?: boolean } = {}) {
   const { data: session } = useSession();
   const [data, setData] = useState<SeatingData>({ zones: [], records: [], myZoneId: null });
   const [loading, setLoading] = useState(true);
@@ -122,6 +123,15 @@ export default function SeatingCard() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {!fullView && (
+            <Link
+              href="/seating"
+              className="hidden sm:flex items-center gap-1 text-xs text-gray-500 hover:text-brand-600 px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <Maximize2 size={12} />
+              全表示
+            </Link>
+          )}
           {isAdmin && (
             <button
               onClick={() => setShowAddZone(true)}
@@ -165,17 +175,23 @@ export default function SeatingCard() {
           {isAdmin ? "「+ ゾーン追加」から部署ゾーンを登録してください" : "ゾーンが未設定です"}
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div
+          className={
+            fullView
+              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+              : "grid grid-cols-1 sm:grid-cols-2 gap-3"
+          }
+        >
           {data.zones.map((zone) => {
             const members = recordsByZone[zone.id] ?? [];
             const colors = COLOR_MAP[zone.color] ?? COLOR_MAP.blue;
             return (
               <div
                 key={zone.id}
-                className={`rounded-xl border p-3 ${colors.bg} ${colors.border}`}
+                className={`rounded-xl border ${fullView ? "p-4 min-h-[140px]" : "p-3"} ${colors.bg} ${colors.border}`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
+                  <span className={`${fullView ? "text-sm" : "text-xs"} font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
                     {zone.name}
                   </span>
                   <div className="flex items-center gap-1">
@@ -193,18 +209,26 @@ export default function SeatingCard() {
                 {members.length === 0 ? (
                   <p className="text-xs text-gray-400">まだ誰もいません</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
+                  <div className={`flex flex-wrap ${fullView ? "gap-3" : "gap-2"}`}>
                     {members.map((m) => (
                       <div key={m.uid} className="flex items-center gap-1.5">
                         {m.photo ? (
-                          <Image src={m.photo} alt={m.name} width={28} height={28} className="rounded-full" />
+                          <Image
+                            src={m.photo}
+                            alt={m.name}
+                            width={fullView ? 32 : 28}
+                            height={fullView ? 32 : 28}
+                            className="rounded-full"
+                          />
                         ) : (
-                          <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-gray-600 font-bold text-xs shadow-sm">
+                          <div
+                            className={`${fullView ? "w-8 h-8" : "w-7 h-7"} rounded-full bg-white flex items-center justify-center text-gray-600 font-bold text-xs shadow-sm`}
+                          >
                             {m.name[0]}
                           </div>
                         )}
-                        <span className="text-xs text-gray-700">
-                          {m.name.split(" ")[0]}
+                        <span className={`${fullView ? "text-sm" : "text-xs"} text-gray-700`}>
+                          {fullView ? m.name : m.name.split(" ")[0]}
                           {m.uid === myEmail && <span className="text-green-500 ml-0.5">●</span>}
                         </span>
                       </div>
