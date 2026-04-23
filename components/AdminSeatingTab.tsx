@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Trash2, Grid3x3, Printer, X } from "lucide-react";
+import { Loader2, Trash2, Grid3x3, Printer, X, Sparkles } from "lucide-react";
 import type { Desk, SeatingLayout, SeatingRecord, DeskType } from "@/types";
 import SeatingGrid from "./SeatingGrid";
 
@@ -10,6 +10,15 @@ interface SeatingData {
   layout: SeatingLayout;
   desks: Desk[];
   records: SeatingRecord[];
+}
+
+interface PresetInfo {
+  id: string;
+  name: string;
+  cols: number;
+  rows: number;
+  deskCount: number;
+  labelCount: number;
 }
 
 export default function AdminSeatingTab() {
@@ -27,6 +36,7 @@ export default function AdminSeatingTab() {
     desk: Desk | null;
   } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [presets, setPresets] = useState<PresetInfo[]>([]);
 
   const fetchAll = useCallback(async () => {
     const res = await fetch("/api/seating");
@@ -41,7 +51,36 @@ export default function AdminSeatingTab() {
 
   useEffect(() => {
     fetchAll();
+    fetch("/api/seating/preset")
+      .then((r) => r.ok ? r.json() : { presets: [] })
+      .then((d) => setPresets(d.presets ?? []))
+      .catch(() => setPresets([]));
   }, [fetchAll]);
+
+  async function applyPreset(presetId: string, presetName: string) {
+    if (
+      !confirm(
+        `「${presetName}」を適用すると現在のレイアウトとデスクは全て上書きされます。続行しますか？`
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      const res = await fetch("/api/seating/preset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ preset: presetId }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        alert(d.error ?? "プリセット適用に失敗しました");
+        return;
+      }
+      await fetchAll();
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function saveLayout() {
     setBusy(true);
@@ -111,6 +150,36 @@ export default function AdminSeatingTab() {
 
   return (
     <div className="space-y-4">
+      {/* プリセット */}
+      {presets.length > 0 && (
+        <div className="bg-brand-50 border border-brand-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles size={16} className="text-brand-600" />
+            <h3 className="font-semibold text-brand-900 text-sm">
+              オフィスプリセット
+            </h3>
+          </div>
+          <p className="text-xs text-brand-800 mb-3">
+            ワンクリックで既製のレイアウトを適用できます（既存デスクは上書きされます）。
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {presets.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => applyPreset(p.id, p.name)}
+                disabled={busy}
+                className="inline-flex items-center gap-2 bg-white border border-brand-300 hover:bg-brand-100 text-brand-900 text-sm px-3 py-2 rounded-xl disabled:opacity-50"
+              >
+                <span className="font-semibold">{p.name}</span>
+                <span className="text-xs text-brand-600">
+                  {p.cols}×{p.rows} / デスク{p.deskCount}・ラベル{p.labelCount}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* レイアウト設定 */}
       <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
         <div className="flex items-center gap-2 mb-3">
