@@ -94,9 +94,14 @@ export interface MiiveBalance {
 
 export interface SeatingLayout {
   floor?: string;       // e.g. "4F"
-  imagePath: string;    // 背景図面のパス（/public 配下）
-  imageWidth: number;   // 画像の本来のピクセル幅
-  imageHeight: number;  // 画像の本来のピクセル高さ
+  /**
+   * SVG フロアプラン識別子（例: "toranomon-4f"）。
+   * 指定時は登録済みの SVG コンポーネントで描画する。未指定なら imagePath を使う。
+   */
+  floorKey?: string;
+  imagePath?: string;   // 背景図面のパス（/public 配下、floorKey 未指定時のフォールバック）
+  imageWidth: number;   // viewBox/画像の幅（アスペクト比算出に使用）
+  imageHeight: number;  // viewBox/画像の高さ
   updatedAt?: string;
 }
 

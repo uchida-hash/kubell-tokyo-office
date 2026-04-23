@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useRef, useState, useCallback, useEffect } from "react";
 import { CalendarDays, Check, User, Plus } from "lucide-react";
 import type { Desk, SeatingRecord, SeatingLayout } from "@/types";
+import { getFloorPlan } from "./floorPlans";
 
 interface Props {
   layout: SeatingLayout;
@@ -49,7 +50,10 @@ export default function SeatingMap({
   records.forEach((r) => recordByDesk.set(r.deskId, r));
 
   // アスペクト比で高さを維持
-  const aspect = layout.imageWidth / layout.imageHeight;
+  const floorPlan = getFloorPlan(layout.floorKey);
+  const aspect = floorPlan
+    ? floorPlan.viewBoxWidth / floorPlan.viewBoxHeight
+    : layout.imageWidth / layout.imageHeight;
 
   // 座標変換: マウスイベント → 画像上の相対 x/y (0-1)
   const toPct = useCallback((ev: React.MouseEvent | MouseEvent) => {
@@ -121,15 +125,19 @@ export default function SeatingMap({
         }}
       >
         {/* 背景図面 */}
-        <Image
-          src={layout.imagePath}
-          alt={`フロア図 ${layout.floor ?? ""}`}
-          fill
-          sizes="(max-width: 1024px) 100vw, 1200px"
-          className="object-contain pointer-events-none"
-          priority
-          unoptimized
-        />
+        {floorPlan ? (
+          <floorPlan.Component className="absolute inset-0 w-full h-full pointer-events-none" />
+        ) : layout.imagePath ? (
+          <Image
+            src={layout.imagePath}
+            alt={`フロア図 ${layout.floor ?? ""}`}
+            fill
+            sizes="(max-width: 1024px) 100vw, 1200px"
+            className="object-contain pointer-events-none"
+            priority
+            unoptimized
+          />
+        ) : null}
 
         {/* デスク */}
         {desks.map((d) => {

@@ -27,9 +27,9 @@ interface SeatingData {
 
 const FALLBACK_LAYOUT: SeatingLayout = {
   floor: "4F",
-  imagePath: "/seating/toranomon-4f.png",
-  imageWidth: 2400,
-  imageHeight: 1350,
+  floorKey: "toranomon-4f",
+  imageWidth: 1200,
+  imageHeight: 800,
 };
 
 export default function SeatingCard({
