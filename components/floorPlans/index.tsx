@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import Toranomon4F from "./Toranomon4F";
+import Toranomon4F, { TORANOMON_4F_VIEWBOX } from "./Toranomon4F";
 
 /**
  * 登録済み SVG フロアプランのレジストリ。
@@ -16,8 +16,8 @@ export const FLOOR_PLANS: Record<
 > = {
   "toranomon-4f": {
     Component: Toranomon4F,
-    viewBoxWidth: 1200,
-    viewBoxHeight: 800,
+    viewBoxWidth: TORANOMON_4F_VIEWBOX.width,
+    viewBoxHeight: TORANOMON_4F_VIEWBOX.height,
     label: "虎ノ門 4F",
   },
 };

@@ -94,25 +94,49 @@ export interface MiiveBalance {
 
 export interface SeatingLayout {
   floor?: string;       // e.g. "4F"
-  /**
-   * SVG フロアプラン識別子（例: "toranomon-4f"）。
-   * 指定時は登録済みの SVG コンポーネントで描画する。未指定なら imagePath を使う。
-   */
-  floorKey?: string;
-  imagePath?: string;   // 背景図面のパス（/public 配下、floorKey 未指定時のフォールバック）
-  imageWidth: number;   // viewBox/画像の幅（アスペクト比算出に使用）
-  imageHeight: number;  // viewBox/画像の高さ
+  floorKey?: string;    // SVG フロアプラン識別子（例: "toranomon-4f"）
+  imagePath?: string;   // 背景画像フォールバック（/public 配下）
+  /** SVG viewBox の幅（座標系の単位幅） */
+  width: number;
+  /** SVG viewBox の高さ */
+  height: number;
+  // 旧フィールド（互換のため残す）
+  imageWidth?: number;
+  imageHeight?: number;
   updatedAt?: string;
 }
 
 export type DeskType = "desk" | "label";
+export type DeskOrient = "up" | "down" | "left" | "right";
 
 export interface Desk {
   id: string;
-  x: number;         // 0.0〜1.0（画像幅に対する相対座標）
-  y: number;         // 0.0〜1.0（画像高さに対する相対座標）
-  label: string;     // e.g. "A-1"
-  type: DeskType;    // "desk" は予約可、"label" は注釈
+  /** SVG viewBox 座標（絶対ピクセル） */
+  x: number;
+  y: number;
+  /** デスクの幅・高さ（省略時はデフォルト） */
+  w?: number;
+  h?: number;
+  label: string;
+  type: DeskType;
+  /** 椅子の向き（背後に椅子を描画） */
+  orient?: DeskOrient;
+  /** 同じ島（ポッド）に属するデスクのグルーピングキー */
+  pod?: string;
+}
+
+export type RoomType = "meeting" | "phone" | "service";
+
+export interface Room {
+  id: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  name: string;
+  subname?: string;
+  capacity?: number;
+  type: RoomType;
 }
 
 export type SeatStatus = "reserved" | "in_use";

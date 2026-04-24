@@ -1,96 +1,151 @@
-import type { DeskType, SeatingLayout } from "@/types";
+import type {
+  DeskOrient,
+  DeskType,
+  Room,
+  RoomType,
+  SeatingLayout,
+} from "@/types";
 
 export interface PresetDesk {
   x: number;
   y: number;
+  w?: number;
+  h?: number;
   label: string;
   type: DeskType;
+  orient?: DeskOrient;
+  pod?: string;
 }
+
+export type PresetRoom = Omit<Room, "id">;
 
 export interface SeatingPreset {
   id: string;
   name: string;
   layout: SeatingLayout;
   desks: PresetDesk[];
+  rooms: PresetRoom[];
 }
 
 /**
- * 虎ノ門 4F レイアウトのプリセット（SVG フロアプラン）。
- * floorKey=toranomon-4f で SVG 描画。viewBox は 1200×800。
- * x/y は 0.0〜1.0（viewBox に対する相対位置）。
- * 位置は図面を見ながらの近似値。管理画面でドラッグして微調整してください。
+ * 虎ノ門 4F プリセット（kubell デザイン準拠）。
+ * floorKey=toranomon-4f で SVG 描画。viewBox は 1400×1456。
  *
- * SVG 上の主な領域（参考）:
- *   - 左アメニティ棟:   x=40-220   / y=110-620
- *   - 中央会議室/Lounge: x=240-500 / y=60-740
- *   - フレキシブル:     x=510-940  / y=320-600
- *   - オフィスデスク帯:  x=510-1140 / y=60-310 (上) および y=610-740 (下)
- *   - 右側デスク帯:     x=950-1140 / y=60-740
+ * 6人島テーブル (tw=58, th=130 を縦向き、左右に 3 席ずつ) を北/南オフィスに並べる。
+ * 会議室 2 室 + 設備室 3 室（IT, TRASH, MOP）をシード。
  */
 const TORANOMON_4F: SeatingPreset = (() => {
   const desks: PresetDesk[] = [];
 
-  // ヘルパー: アンカー (ax, ay) を左上として rows × cols のクラスターを配置
-  // ax, ay は 0-1 相対座標
-  function cluster(
-    prefix: string,
-    ax: number,
-    ay: number,
-    rows: number,
-    cols: number,
-    dx = 0.032,
-    dy = 0.055
-  ) {
-    let n = 1;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        desks.push({
-          x: ax + c * dx,
-          y: ay + r * dy,
-          label: `${prefix}-${String(n).padStart(2, "0")}`,
-          type: "desk",
-        });
-        n++;
-      }
+  // 6人長テーブル (縦向き) - SeatMap.jsx の table6v と同じ
+  function table6v(prefix: string, x: number, y: number) {
+    const tw = 58;
+    const th = 130;
+    const seatH = th / 3;
+    for (let i = 0; i < 3; i++) {
+      desks.push({
+        label: `${prefix}L${i + 1}`,
+        x,
+        y: y + i * seatH + 2,
+        w: tw / 2 - 2,
+        h: seatH - 3,
+        type: "desk",
+        orient: "left",
+        pod: prefix,
+      });
+    }
+    for (let i = 0; i < 3; i++) {
+      desks.push({
+        label: `${prefix}R${i + 1}`,
+        x: x + tw / 2 + 2,
+        y: y + i * seatH + 2,
+        w: tw / 2 - 2,
+        h: seatH - 3,
+        type: "desk",
+        orient: "right",
+        pod: prefix,
+      });
     }
   }
 
-  // viewBox=1200x800 基準。
-  // y: 0.075 = y60, 0.1 = y80, 0.5 = y400 など
+  // 北オフィス: 6列 × 4段 = 24 テーブル × 6 席 = 144 席
+  const N_COLS = [540, 680, 820, 960, 1100, 1240];
+  const N_ROWS = [50, 200, 350, 500];
+  N_ROWS.forEach((ry, ri) => {
+    N_COLS.forEach((cx, ci) => {
+      table6v(`N${ri + 1}${ci + 1}`, cx, ry);
+    });
+  });
 
-  // ===== 上部（北側）のデスククラスター =====
-  // オフィス上部帯: viewBox y=60-300 → 0.075-0.375
-  cluster("A", 0.45, 0.10, 2, 2); // x=540-600, y=80-168
-  cluster("B", 0.57, 0.10, 2, 2); // x=684-744
-  cluster("C", 0.70, 0.10, 2, 2); // x=840-900
-  cluster("D", 0.83, 0.10, 2, 2); // x=996-1056
+  // 南オフィス: 6列 × 4段 = 144 席
+  const S_COLS = [540, 680, 820, 960, 1100, 1240];
+  const S_ROWS = [850, 1000, 1150, 1300];
+  S_ROWS.forEach((ry, ri) => {
+    S_COLS.forEach((cx, ci) => {
+      table6v(`S${ri + 1}${ci + 1}`, cx, ry);
+    });
+  });
 
-  cluster("E", 0.45, 0.24, 2, 2); // y=192-280
-  cluster("F", 0.57, 0.24, 2, 2);
-  cluster("G", 0.70, 0.24, 2, 2);
-  cluster("H", 0.83, 0.24, 2, 2);
-
-  // ===== 右側（フレキシブルエリア右）のデスククラスター =====
-  cluster("I", 0.83, 0.43, 2, 2); // y=344-432
-  cluster("J", 0.83, 0.56, 2, 2); // y=448-536
-
-  // ===== 下部（南側）のデスククラスター =====
-  // viewBox y=610-740 → 0.76-0.925
-  cluster("K", 0.45, 0.78, 2, 2);
-  cluster("L", 0.57, 0.78, 2, 2);
-  cluster("M", 0.70, 0.78, 2, 2);
-  cluster("N", 0.83, 0.78, 2, 2);
+  const rooms: PresetRoom[] = [
+    // 中央スパインの会議室
+    {
+      name: "CONV ROOM 04A",
+      subname: "4 CHAIRS",
+      capacity: 4,
+      x: 410,
+      y: 870,
+      w: 110,
+      h: 110,
+      type: "meeting" as RoomType,
+    },
+    {
+      name: "BRAIN STORM 04B",
+      subname: "8 CHAIRS",
+      capacity: 8,
+      x: 410,
+      y: 340,
+      w: 110,
+      h: 130,
+      type: "meeting" as RoomType,
+    },
+    // 設備室
+    {
+      name: "IT",
+      x: 420,
+      y: 1100,
+      w: 90,
+      h: 50,
+      type: "service" as RoomType,
+    },
+    {
+      name: "TRASH",
+      x: 420,
+      y: 990,
+      w: 90,
+      h: 40,
+      type: "service" as RoomType,
+    },
+    {
+      name: "MOP",
+      x: 420,
+      y: 1040,
+      w: 60,
+      h: 40,
+      type: "service" as RoomType,
+    },
+  ];
 
   return {
     id: "toranomon-4f",
-    name: "虎ノ門 4F（KDX 虎ノ門1丁目）",
+    name: "虎ノ門 4F（kubell デザイン準拠）",
     layout: {
       floor: "4F",
       floorKey: "toranomon-4f",
-      imageWidth: 1200,
-      imageHeight: 800,
+      width: 1400,
+      height: 1456,
     },
     desks,
+    rooms,
   };
 })();
 

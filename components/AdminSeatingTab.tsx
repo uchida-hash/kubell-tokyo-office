@@ -2,13 +2,29 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Loader2, Trash2, Printer, X, Sparkles, Info } from "lucide-react";
-import type { Desk, SeatingLayout, SeatingRecord, DeskType } from "@/types";
+import {
+  Loader2,
+  Trash2,
+  Printer,
+  X,
+  Sparkles,
+  Info,
+} from "lucide-react";
+import type {
+  Desk,
+  DeskOrient,
+  DeskType,
+  Room,
+  RoomType,
+  SeatingLayout,
+  SeatingRecord,
+} from "@/types";
 import SeatingMap from "./SeatingMap";
 
 interface SeatingData {
   layout: SeatingLayout;
   desks: Desk[];
+  rooms: Room[];
   records: SeatingRecord[];
 }
 
@@ -17,28 +33,42 @@ interface PresetInfo {
   name: string;
   floor?: string;
   deskCount: number;
-  labelCount: number;
+  roomCount: number;
 }
 
 const FALLBACK_LAYOUT: SeatingLayout = {
   floor: "4F",
   floorKey: "toranomon-4f",
-  imageWidth: 1200,
-  imageHeight: 800,
+  width: 1400,
+  height: 1456,
 };
+
+type EditingState =
+  | {
+      kind: "desk";
+      desk: Desk | null;
+      x: number;
+      y: number;
+    }
+  | {
+      kind: "room";
+      room: Room;
+    }
+  | {
+      kind: "add";
+      x: number;
+      y: number;
+    };
 
 export default function AdminSeatingTab() {
   const [data, setData] = useState<SeatingData>({
     layout: FALLBACK_LAYOUT,
     desks: [],
+    rooms: [],
     records: [],
   });
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<{
-    desk: Desk | null;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [editing, setEditing] = useState<EditingState | null>(null);
   const [busy, setBusy] = useState(false);
   const [presets, setPresets] = useState<PresetInfo[]>([]);
 
@@ -62,7 +92,7 @@ export default function AdminSeatingTab() {
   async function applyPreset(presetId: string, presetName: string) {
     if (
       !confirm(
-        `「${presetName}」を適用すると現在のレイアウトとデスクは全て上書きされます。続行しますか？`
+        `「${presetName}」を適用すると現在のレイアウト・デスク・会議室は全て上書きされます。続行しますか？`
       )
     )
       return;
@@ -84,31 +114,83 @@ export default function AdminSeatingTab() {
     }
   }
 
-  async function saveDesk({
-    id,
-    x,
-    y,
-    label,
-    type,
-  }: {
+  async function saveDesk(payload: {
     id?: string;
     x: number;
     y: number;
+    w?: number;
+    h?: number;
     label: string;
     type: DeskType;
+    orient?: DeskOrient;
+    pod?: string;
   }) {
     setBusy(true);
     try {
       const res = await fetch("/api/seating/desks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, x, y, label, type }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const d = await res.json();
         alert(d.error ?? "保存に失敗しました");
         return;
       }
+      setEditing(null);
+      await fetchAll();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveRoom(payload: {
+    id?: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    name: string;
+    subname?: string;
+    capacity?: number;
+    type: RoomType;
+  }) {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/seating/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        alert(d.error ?? "保存に失敗しました");
+        return;
+      }
+      setEditing(null);
+      await fetchAll();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteDesk(id: string) {
+    if (!confirm("このデスクを削除しますか？")) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/seating/desks/${id}`, { method: "DELETE" });
+      setEditing(null);
+      await fetchAll();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteRoom(id: string) {
+    if (!confirm("この会議室/設備室を削除しますか？")) return;
+    setBusy(true);
+    try {
+      await fetch(`/api/seating/rooms/${id}`, { method: "DELETE" });
       setEditing(null);
       await fetchAll();
     } finally {
@@ -131,22 +213,38 @@ export default function AdminSeatingTab() {
         id,
         x,
         y,
+        w: target.w,
+        h: target.h,
         label: target.label,
         type: target.type,
+        orient: target.orient,
+        pod: target.pod,
       }),
     });
   }
 
-  async function deleteDesk(id: string) {
-    if (!confirm("このマスを削除しますか？")) return;
-    setBusy(true);
-    try {
-      await fetch(`/api/seating/desks/${id}`, { method: "DELETE" });
-      setEditing(null);
-      await fetchAll();
-    } finally {
-      setBusy(false);
-    }
+  async function moveRoom(id: string, x: number, y: number) {
+    const target = data.rooms.find((r) => r.id === id);
+    if (!target) return;
+    setData((prev) => ({
+      ...prev,
+      rooms: prev.rooms.map((r) => (r.id === id ? { ...r, x, y } : r)),
+    }));
+    await fetch("/api/seating/rooms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id,
+        x,
+        y,
+        w: target.w,
+        h: target.h,
+        name: target.name,
+        subname: target.subname,
+        capacity: target.capacity,
+        type: target.type,
+      }),
+    });
   }
 
   if (loading) {
@@ -169,7 +267,7 @@ export default function AdminSeatingTab() {
             </h3>
           </div>
           <p className="text-xs text-brand-800 mb-3">
-            ワンクリックで既製のフロアレイアウトを適用できます。図面画像とデスク初期配置が同時にセットされます（既存デスクは上書き）。
+            ワンクリックでフロアレイアウト・デスク・会議室を一括セット（既存データは上書き）。
           </p>
           <div className="flex flex-wrap gap-2">
             {presets.map((p) => (
@@ -181,8 +279,7 @@ export default function AdminSeatingTab() {
               >
                 <span className="font-semibold">{p.name}</span>
                 <span className="text-xs text-brand-600">
-                  デスク{p.deskCount}
-                  {p.labelCount > 0 && ` / ラベル${p.labelCount}`}
+                  デスク {p.deskCount} / 会議室 {p.roomCount}
                 </span>
               </button>
             ))}
@@ -195,11 +292,10 @@ export default function AdminSeatingTab() {
         <Info size={14} className="text-gray-500 mt-0.5 shrink-0" />
         <div className="text-xs text-gray-600 flex-1">
           <div>
-            <strong>図面の空きエリアをクリック</strong> → 新規デスク/ラベルを追加
+            <strong>空きエリアをクリック</strong> → デスク or 会議室を追加
           </div>
           <div>
-            <strong>デスクをドラッグ</strong> → 位置を移動
-            ／ <strong>クリック</strong> → 編集・削除
+            <strong>ドラッグ</strong> → 位置を移動／ <strong>クリック</strong> → 編集・削除
           </div>
         </div>
         <Link
@@ -215,17 +311,51 @@ export default function AdminSeatingTab() {
       <SeatingMap
         layout={data.layout}
         desks={data.desks}
+        rooms={data.rooms}
         records={data.records}
         editMode
         onDeskClick={(desk) =>
-          setEditing({ desk, x: desk.x, y: desk.y })
+          setEditing({ kind: "desk", desk, x: desk.x, y: desk.y })
         }
-        onAddAt={(x, y) => setEditing({ desk: null, x, y })}
+        onRoomClick={(room) => setEditing({ kind: "room", room })}
+        onAddAt={(x, y) => setEditing({ kind: "add", x, y })}
         onMoveDesk={moveDesk}
+        onMoveRoom={moveRoom}
       />
 
-      {editing && (
-        <EditModal
+      {editing && editing.kind === "add" && (
+        <AddTypeChooser
+          x={editing.x}
+          y={editing.y}
+          onCancel={() => setEditing(null)}
+          onPickDesk={() =>
+            setEditing({
+              kind: "desk",
+              desk: null,
+              x: editing.x,
+              y: editing.y,
+            })
+          }
+          onPickRoom={() => {
+            const ret: EditingState = {
+              kind: "room",
+              room: {
+                id: "",
+                x: editing.x,
+                y: editing.y,
+                w: 110,
+                h: 110,
+                name: "",
+                type: "meeting",
+              } as Room,
+            };
+            setEditing(ret);
+          }}
+        />
+      )}
+
+      {editing && editing.kind === "desk" && (
+        <DeskModal
           x={editing.x}
           y={editing.y}
           desk={editing.desk}
@@ -235,11 +365,79 @@ export default function AdminSeatingTab() {
           onDelete={deleteDesk}
         />
       )}
+
+      {editing && editing.kind === "room" && (
+        <RoomModal
+          room={editing.room}
+          busy={busy}
+          onClose={() => setEditing(null)}
+          onSave={saveRoom}
+          onDelete={deleteRoom}
+        />
+      )}
     </div>
   );
 }
 
-function EditModal({
+function AddTypeChooser({
+  x,
+  y,
+  onCancel,
+  onPickDesk,
+  onPickRoom,
+}: {
+  x: number;
+  y: number;
+  onCancel: () => void;
+  onPickDesk: () => void;
+  onPickRoom: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-800">
+            追加するもの
+            <span className="text-xs text-gray-400 font-normal ml-2">
+              ({Math.round(x)}, {Math.round(y)})
+            </span>
+          </h3>
+          <button onClick={onCancel} className="text-gray-400 hover:text-gray-600">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          <button
+            onClick={onPickDesk}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-brand-50 hover:border-brand-300 transition-colors text-left"
+          >
+            <div className="w-8 h-10 border-2 border-gray-300 rounded bg-white" />
+            <div>
+              <div className="font-semibold text-sm text-gray-800">デスク</div>
+              <div className="text-xs text-gray-500">1席分の予約可能なデスク</div>
+            </div>
+          </button>
+          <button
+            onClick={onPickRoom}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:bg-green-50 hover:border-green-300 transition-colors text-left"
+          >
+            <div className="w-10 h-10 rounded bg-[#CDE8D8] border border-[#6FA886]" />
+            <div>
+              <div className="font-semibold text-sm text-gray-800">
+                会議室 / 設備室
+              </div>
+              <div className="text-xs text-gray-500">
+                サイズ・名称・収容人数を設定
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeskModal({
   x,
   y,
   desk,
@@ -257,34 +455,38 @@ function EditModal({
     id?: string;
     x: number;
     y: number;
+    w?: number;
+    h?: number;
     label: string;
     type: DeskType;
+    orient?: DeskOrient;
+    pod?: string;
   }) => void;
   onDelete: (id: string) => void;
 }) {
   const [label, setLabel] = useState(desk?.label ?? "");
   const [type, setType] = useState<DeskType>(desk?.type ?? "desk");
+  const [orient, setOrient] = useState<DeskOrient | "">(desk?.orient ?? "");
+  const [pod, setPod] = useState(desk?.pod ?? "");
+  const [w, setW] = useState<number | "">(desk?.w ?? "");
+  const [h, setH] = useState<number | "">(desk?.h ?? "");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-gray-800">
-            {desk ? "マスを編集" : "マスを追加"}{" "}
-            <span className="text-xs text-gray-400 font-normal">
-              ({(x * 100).toFixed(1)}%, {(y * 100).toFixed(1)}%)
+            {desk ? "デスク編集" : "デスク追加"}
+            <span className="text-xs text-gray-400 font-normal ml-2">
+              ({Math.round(x)}, {Math.round(y)})
             </span>
           </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
-            aria-label="閉じる"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-gray-500 mb-1 block">
               種別
@@ -293,7 +495,7 @@ function EditModal({
               {(
                 [
                   { value: "desk", label: "デスク" },
-                  { value: "label", label: "ラベル（注釈）" },
+                  { value: "label", label: "ラベル" },
                 ] as const
               ).map((o) => (
                 <button
@@ -317,8 +519,78 @@ function EditModal({
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder={type === "desk" ? "例：A-01" : "例：会議室A、窓"}
+              placeholder="例: A-01"
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                幅 (px)
+              </label>
+              <input
+                type="number"
+                value={w}
+                onChange={(e) =>
+                  setW(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                placeholder="27"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                高さ (px)
+              </label>
+              <input
+                type="number"
+                value={h}
+                onChange={(e) =>
+                  setH(e.target.value === "" ? "" : Number(e.target.value))
+                }
+                placeholder="40"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">
+              椅子の向き
+            </label>
+            <div className="flex gap-1">
+              {(
+                [
+                  { v: "", l: "なし" },
+                  { v: "up", l: "上" },
+                  { v: "down", l: "下" },
+                  { v: "left", l: "左" },
+                  { v: "right", l: "右" },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => setOrient(o.v as DeskOrient | "")}
+                  className={`flex-1 px-2 py-1.5 rounded-lg border text-xs transition-all ${
+                    orient === o.v
+                      ? "bg-brand-50 border-brand-600 text-brand-900 font-semibold"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">
+              島（ポッド）キー
+              <span className="text-gray-400 ml-1">任意</span>
+            </label>
+            <input
+              value={pod}
+              onChange={(e) => setPod(e.target.value)}
+              placeholder="例: N11（同じ島のデスクで共通化）"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
             />
           </div>
         </div>
@@ -346,14 +618,204 @@ function EditModal({
                 id: desk?.id,
                 x,
                 y,
+                w: w === "" ? undefined : Number(w),
+                h: h === "" ? undefined : Number(h),
                 label: label.trim() || "(無題)",
                 type,
+                orient: orient || undefined,
+                pod: pod.trim() || undefined,
               })
             }
             disabled={busy}
             className="px-4 py-2 text-sm text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50"
           >
             {desk ? "更新" : "追加"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoomModal({
+  room,
+  busy,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  room: Room;
+  busy: boolean;
+  onClose: () => void;
+  onSave: (v: {
+    id?: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    name: string;
+    subname?: string;
+    capacity?: number;
+    type: RoomType;
+  }) => void;
+  onDelete: (id: string) => void;
+}) {
+  const isNew = !room.id;
+  const [name, setName] = useState(room.name ?? "");
+  const [subname, setSubname] = useState(room.subname ?? "");
+  const [capacity, setCapacity] = useState<number | "">(
+    room.capacity ?? ""
+  );
+  const [type, setType] = useState<RoomType>(room.type ?? "meeting");
+  const [w, setW] = useState<number>(room.w ?? 110);
+  const [h, setH] = useState<number>(room.h ?? 110);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-800">
+            {isNew ? "会議室を追加" : "会議室を編集"}
+            <span className="text-xs text-gray-400 font-normal ml-2">
+              ({Math.round(room.x)}, {Math.round(room.y)})
+            </span>
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">
+              種別
+            </label>
+            <div className="flex gap-2">
+              {(
+                [
+                  { v: "meeting", l: "会議室" },
+                  { v: "phone", l: "フォンブース" },
+                  { v: "service", l: "設備室" },
+                ] as const
+              ).map((o) => (
+                <button
+                  key={o.v}
+                  onClick={() => setType(o.v as RoomType)}
+                  className={`flex-1 px-2 py-2 rounded-xl border text-sm transition-all ${
+                    type === o.v
+                      ? "bg-brand-50 border-brand-600 text-brand-900 font-semibold"
+                      : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {o.l}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500 mb-1 block">
+              名称
+            </label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="例: CONV ROOM 04A"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-300"
+            />
+          </div>
+          {type !== "service" && (
+            <>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                  サブ名称
+                  <span className="text-gray-400 ml-1">任意</span>
+                </label>
+                <input
+                  value={subname}
+                  onChange={(e) => setSubname(e.target.value)}
+                  placeholder="例: 4 CHAIRS"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                  収容人数
+                </label>
+                <input
+                  type="number"
+                  value={capacity}
+                  onChange={(e) =>
+                    setCapacity(
+                      e.target.value === "" ? "" : Number(e.target.value)
+                    )
+                  }
+                  placeholder="例: 4"
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                />
+              </div>
+            </>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                幅 (px)
+              </label>
+              <input
+                type="number"
+                value={w}
+                onChange={(e) => setW(Number(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                高さ (px)
+              </label>
+              <input
+                type="number"
+                value={h}
+                onChange={(e) => setH(Number(e.target.value))}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-2 mt-5">
+          {!isNew && (
+            <button
+              onClick={() => onDelete(room.id)}
+              disabled={busy}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-xl"
+            >
+              <Trash2 size={14} />
+              削除
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="ml-auto px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-xl hover:bg-gray-200"
+          >
+            キャンセル
+          </button>
+          <button
+            onClick={() =>
+              onSave({
+                id: isNew ? undefined : room.id,
+                x: room.x,
+                y: room.y,
+                w,
+                h,
+                name: name.trim() || "(無題)",
+                subname: subname.trim() || undefined,
+                capacity: capacity === "" ? undefined : Number(capacity),
+                type,
+              })
+            }
+            disabled={busy}
+            className="px-4 py-2 text-sm text-white bg-brand-600 rounded-xl hover:bg-brand-700 disabled:opacity-50"
+          >
+            {isNew ? "追加" : "更新"}
           </button>
         </div>
       </div>

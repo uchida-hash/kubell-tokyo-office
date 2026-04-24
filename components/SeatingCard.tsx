@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import type {
   Desk,
+  Room,
   SeatingLayout,
   SeatingRecord,
 } from "@/types";
@@ -21,6 +22,7 @@ import ProfileViewModal from "./ProfileViewModal";
 interface SeatingData {
   layout: SeatingLayout;
   desks: Desk[];
+  rooms: Room[];
   records: SeatingRecord[];
   myRecord: SeatingRecord | null;
 }
@@ -28,8 +30,8 @@ interface SeatingData {
 const FALLBACK_LAYOUT: SeatingLayout = {
   floor: "4F",
   floorKey: "toranomon-4f",
-  imageWidth: 1200,
-  imageHeight: 800,
+  width: 1400,
+  height: 1456,
 };
 
 export default function SeatingCard({
@@ -41,6 +43,7 @@ export default function SeatingCard({
   const [data, setData] = useState<SeatingData>({
     layout: FALLBACK_LAYOUT,
     desks: [],
+    rooms: [],
     records: [],
     myRecord: null,
   });
@@ -100,13 +103,10 @@ export default function SeatingCard({
   function handleDeskClick(desk: Desk, record: SeatingRecord | null) {
     if (submitting) return;
 
-    // 他人の席 → プロフィール表示
     if (record && record.uid !== myEmail) {
       setViewProfile(record);
       return;
     }
-
-    // 自分の席 → 解除確認
     if (record && record.uid === myEmail) {
       if (
         confirm(
@@ -117,8 +117,6 @@ export default function SeatingCard({
       }
       return;
     }
-
-    // 空席 → 予約確認
     if (confirm(`${desk.label} を予約しますか？`)) {
       reserveDesk(desk.id);
     }
@@ -130,7 +128,6 @@ export default function SeatingCard({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-      {/* ヘッダー */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           <LayoutGrid size={18} className="text-brand-600" />
@@ -143,7 +140,7 @@ export default function SeatingCard({
             </span>
           )}
           {inUseCount > 0 && (
-            <span className="text-xs bg-amber-100 text-amber-900 font-semibold px-2 py-0.5 rounded-full border border-amber-200">
+            <span className="text-xs bg-[#FCE4D9] text-[#C73800] font-semibold px-2 py-0.5 rounded-full border border-[#F04600]">
               利用中 {inUseCount}
             </span>
           )}
@@ -171,15 +168,14 @@ export default function SeatingCard({
         </div>
       </div>
 
-      {/* 自分の席情報 */}
       {data.myRecord && (
         <div className="mb-3 flex items-center gap-2 text-sm flex-wrap">
           <span className="text-gray-500">あなた：</span>
           <span
             className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${
               data.myRecord.status === "in_use"
-                ? "bg-amber-100 text-amber-900 border-amber-700"
-                : "bg-blue-100 text-blue-900 border-blue-700"
+                ? "bg-[#FCE4D9] text-[#C73800] border-[#F04600]"
+                : "bg-blue-100 text-blue-900 border-[#2F6FB5]"
             }`}
           >
             {data.myRecord.status === "in_use" ? "利用中" : "予約中"}
@@ -219,6 +215,7 @@ export default function SeatingCard({
         <SeatingMap
           layout={data.layout}
           desks={data.desks}
+          rooms={data.rooms ?? []}
           records={data.records}
           myEmail={myEmail}
           onDeskClick={handleDeskClick}
