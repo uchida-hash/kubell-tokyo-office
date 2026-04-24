@@ -18,6 +18,7 @@ import type {
 } from "@/types";
 import SeatingMap from "./SeatingMap";
 import ProfileViewModal from "./ProfileViewModal";
+import SeatedMembersList from "./SeatedMembersList";
 
 interface SeatingData {
   layout: SeatingLayout;
@@ -226,6 +227,17 @@ export default function SeatingCard({
         <p className="text-xs text-gray-400 mt-2">
           席をタップして予約・解除・プロフィール閲覧ができます。実際に着席する際はデスクの QR コードを読み取ってください。
         </p>
+      )}
+
+      {/* 今日の出社メンバー一覧 */}
+      {!loading && hasLayout && data.records.length > 0 && (
+        <div className={fullView ? "mt-5" : "mt-4"}>
+          <SeatedMembersList
+            desks={data.desks}
+            records={data.records}
+            myEmail={myEmail}
+          />
+        </div>
       )}
 
       {viewProfile && (

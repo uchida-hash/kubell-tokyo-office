@@ -542,7 +542,7 @@ function DeskElement({
   ) : null;
 
   const titleText = record
-    ? `${desk.label}｜${record.name}（${status === "in_use" ? "利用中" : "予約"}）`
+    ? `${desk.label}｜${record.name}${record.department ? ` / ${record.department}` : ""}（${status === "in_use" ? "利用中" : "予約"}）`
     : `${desk.label}｜空き`;
 
   return (
