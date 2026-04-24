@@ -57,6 +57,11 @@ export async function upsertSeat({
   const existing = await ref.get();
   const prev = (existing.data() as SeatingRecord | undefined) ?? null;
 
+  const reservedAt =
+    prev?.reservedAt ?? (status === "reserved" ? now : null);
+  const checkedInAt =
+    status === "in_use" ? now : prev?.checkedInAt ?? null;
+
   const record: SeatingRecord = {
     uid: email,
     name,
@@ -64,13 +69,24 @@ export async function upsertSeat({
     department,
     deskId,
     status,
-    reservedAt:
-      prev?.reservedAt ??
-      (status === "reserved" ? now : prev?.reservedAt),
-    checkedInAt: status === "in_use" ? now : prev?.checkedInAt,
+    reservedAt: reservedAt ?? undefined,
+    checkedInAt: checkedInAt ?? undefined,
     updatedAt: now,
   };
 
-  await ref.set(record);
+  // Firestore は null は OK、undefined は ignoreUndefinedProperties で無視
+  const payload: Record<string, unknown> = {
+    uid: record.uid,
+    name: record.name,
+    photo: record.photo ?? "",
+    department: record.department ?? "",
+    deskId: record.deskId,
+    status: record.status,
+    updatedAt: record.updatedAt,
+  };
+  if (reservedAt) payload.reservedAt = reservedAt;
+  if (checkedInAt) payload.checkedInAt = checkedInAt;
+
+  await ref.set(payload);
   return record;
 }

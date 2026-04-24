@@ -80,11 +80,19 @@ export default function SeatingCard({
         body: JSON.stringify({ deskId }),
       });
       if (!res.ok) {
-        const d = await res.json();
-        setError(d.error ?? "予約に失敗しました");
+        let msg = `予約に失敗しました (HTTP ${res.status})`;
+        try {
+          const d = await res.json();
+          if (d?.error) msg = d.error;
+        } catch {
+          /* response not JSON */
+        }
+        setError(msg);
         return;
       }
       await fetchSeating();
+    } catch (e) {
+      setError(`予約に失敗しました: ${(e as Error).message ?? "通信エラー"}`);
     } finally {
       setSubmitting(false);
     }
@@ -94,8 +102,14 @@ export default function SeatingCard({
     setSubmitting(true);
     setError(null);
     try {
-      await fetch("/api/seating", { method: "DELETE" });
+      const res = await fetch("/api/seating", { method: "DELETE" });
+      if (!res.ok) {
+        setError(`解除に失敗しました (HTTP ${res.status})`);
+        return;
+      }
       await fetchSeating();
+    } catch (e) {
+      setError(`解除に失敗しました: ${(e as Error).message ?? "通信エラー"}`);
     } finally {
       setSubmitting(false);
     }

@@ -8,6 +8,8 @@ if (!admin.apps.length) {
       privateKey: process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     }),
   });
+  // undefined なフィールドは Firestore 書き込み時に無視する（投げてクラッシュしない）
+  admin.firestore().settings({ ignoreUndefinedProperties: true });
 }
 
 export const adminDb = admin.firestore();
