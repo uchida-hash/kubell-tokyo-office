@@ -2,7 +2,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 import { redirect } from "next/navigation";
 import Header from "@/components/Header";
-import AttendanceCard from "@/components/AttendanceCard";
 import LunchCard from "@/components/LunchCard";
 import CalendarCard from "@/components/CalendarCard";
 import AnnouncementCard from "@/components/AnnouncementCard";
@@ -35,22 +34,21 @@ export default async function DashboardPage() {
             <AnnouncementCard />
           </div>
 
-          {/* 出社状況 */}
-          <AttendanceCard />
-
-          {/* シャッフルランチ */}
-          <LunchCard />
-
-          {/* 座席表（全幅） */}
+          {/* 座席表（全幅・出社状況も兼ねる） */}
           <div className="lg:col-span-2">
             <SeatingCard />
           </div>
 
+          {/* シャッフルランチ */}
+          <LunchCard />
+
           {/* カレンダー */}
           <CalendarCard />
 
-          {/* miive */}
-          <MiiveCard />
+          {/* miive（全幅） */}
+          <div className="lg:col-span-2">
+            <MiiveCard />
+          </div>
         </div>
       </main>
     </>
