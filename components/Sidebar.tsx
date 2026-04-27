@@ -10,6 +10,7 @@ import {
   Hash,
   Settings,
   LogOut,
+  Shuffle,
 } from "lucide-react";
 
 export default function Sidebar() {
@@ -19,6 +20,7 @@ export default function Sidebar() {
   const nav: { href: string; label: string; icon: typeof Home }[] = [
     { href: "/", label: "ホーム", icon: Home },
     { href: "/seating", label: "座席表", icon: LayoutGrid },
+    { href: "/lunch", label: "シャッフルランチ", icon: Shuffle },
     { href: "/community", label: "コミュニティ", icon: Hash },
   ];
   if (session?.user?.isAdmin) {

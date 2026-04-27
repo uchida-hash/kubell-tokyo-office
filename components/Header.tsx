@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Settings, LogOut, UserCircle, Hash, LayoutGrid } from "lucide-react";
+import { Settings, LogOut, UserCircle, Hash, LayoutGrid, Shuffle } from "lucide-react";
 import { useState } from "react";
 import ProfileEditModal from "./ProfileEditModal";
 
@@ -32,6 +32,13 @@ export default function Header() {
           >
             <LayoutGrid size={15} />
             座席表
+          </Link>
+          <Link
+            href="/lunch"
+            className="hidden sm:flex lg:hidden items-center gap-1.5 px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-full transition-colors text-sm"
+          >
+            <Shuffle size={15} />
+            ランチ
           </Link>
           <Link
             href="/community"
